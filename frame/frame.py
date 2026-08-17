@@ -18,7 +18,7 @@ VERIFY: Inspect > Measure per docstring checklist of v1, plus:
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "v21-PROD-2026-08-17"
+__VERSION__ = "v22-PROD-2026-08-17"
 
 FINGER = 1.2   # cm tooth length
 NBANDS = 5     # depth bands (even bands protrude)
@@ -72,7 +72,6 @@ def run(context):
         app = adsk.core.Application.get(); ui = app.userInterface
         design = adsk.fusion.Design.cast(app.activeProduct)
         if not design: ui.messageBox("Open a design first."); return
-        design.designType = adsk.fusion.DesignTypes.DirectDesignType
         root = design.rootComponent; b = B(root)
 
         gW,gH,gT = p(design,"glassW"),p(design,"glassH"),p(design,"glassT")
@@ -92,9 +91,14 @@ def run(context):
         cArm = p(design,"cornerArm")
         dgD  = p(design,"diffGrooveD"); dgH = p(design,"diffGrooveH")
         spD  = p(design,"supPilotD")
+        monW_ = p(design,"monW")             # portrait height = chassis W
+
 
         gEng = p(design,"glassEng")
         iW,iH = gW - 2*gEng, gH - 2*gEng   # glass OVERLAPS the slots (v19 fix: was inverted -> glass fell through)
+        # ALL parameter reads complete -> switch to direct modeling
+        # (userParameters are parametric-only; v21 crashed by switching first)
+        design.designType = adsk.fusion.DesignTypes.DirectDesignType
         oW,oH = iW+2*fW, iH+2*fW
         cext  = R + cArm                  # arc + full straight arm
         z_front, z_ch_b = fD, fD-chD
@@ -331,7 +335,7 @@ def run(context):
         # the monitor's bottom edge (2 pilots/side); strap retains the
         # top (1 pilot/side). One long thin cylinder per hole cuts both
         # rails symmetrically; cavity in between is empty space.
-        monW_ = p(design,"monW")            # portrait height = chassis W
+        # (monW_ read in the parametric phase above)
         yBeam = -monW_/2 - 1.5              # beam body below monitor edge
         yStrap = monW_/2 + 0.8
         for hy, hz in ((yBeam, 2.0), (yBeam, 4.5), (yStrap, 3.0)):
