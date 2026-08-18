@@ -18,7 +18,7 @@ VERIFY: Inspect > Measure per docstring checklist of v1, plus:
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "v22-PROD-2026-08-17"
+__VERSION__ = "v23-PROD-2026-08-18"
 
 FINGER = 1.2   # cm tooth length
 NBANDS = 5     # depth bands (even bands protrude)
@@ -203,7 +203,7 @@ def run(context):
             acx, acy = cx_o - sx*R, cy_o - sy*R
             body = None
             for k,(zb0,zb1) in enumerate(bands):
-                ext = (FINGER - jc) if k%2==0 else 0.0  # corner teeth, x-cleared
+                ext = 0.0   # v23: bands flush; teeth added as cleared blocks below
                 sk = root.sketches.add(root.xYConstructionPlane)
                 P = adsk.core.Point3D.create
                 L = sk.sketchCurves.sketchLines
@@ -223,6 +223,17 @@ def run(context):
                 pc = f.bodies.item(0)
                 if body is None: body = pc; body.name = name
                 else: b.join(body, pc)
+            # v23: corner teeth as separate blocks, cleared by jc on ALL
+            # faces (matches rail teeth; zero-z-clearance made BR need force)
+            for k,(zb0,zb1) in enumerate(bands):
+                if k % 2: continue
+                tx = b.box(cx_s - sx*(FINGER - jc), cy_i, zb0 + jc,
+                           cx_s, sy*oH/2, zb1 - jc)
+                b.join(body, tx)
+                ty = b.box(cx_i, cy_s - sy*(FINGER - jc), zb0 + jc,
+                           sx*oW/2, cy_s, zb1 - jc)
+                b.join(body, ty)
+
             # glass pocket (square) + CONTINUOUS ROUNDED channel bend
             s1 = b.box(cx_i, cy_s-sy*2, z_slot_b, cx_i+sx*grv,
                        cy_i+sy*0.01, z_slot_f)
