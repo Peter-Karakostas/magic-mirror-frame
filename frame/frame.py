@@ -18,7 +18,7 @@ VERIFY: Inspect > Measure per docstring checklist of v1, plus:
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "v23-PROD-2026-08-18"
+__VERSION__ = "v24-PROD-2026-08-18"
 
 FINGER = 1.2   # cm tooth length
 NBANDS = 5     # depth bands (even bands protrude)
@@ -290,6 +290,10 @@ def run(context):
             bb = body.boundingBox
             if bb.minPoint.x < -0.5 and bb.maxPoint.x > 0.5:
                 for t in tools: b.cut(body, t)
+                # v24: cable passage pocket -> cavity (was missing;
+                # cables had no modeled path inboard)
+                b.cut(body, b.box(-0.5, -(iH/2 + wall) - 0.05, 0.8,
+                                  0.5, -(iH/2) + 0.05, 1.8))
                 break
 
         # --- RADAR slide-in pocket: bottom rail, x=+12cm, open to rear,
@@ -301,6 +305,9 @@ def run(context):
             bb = body.boundingBox
             if bb.minPoint.x < 13.0 < bb.maxPoint.x:
                 b.cut(body, rp)
+                # v24: rear-face cable groove, pocket -> inner edge
+                b.cut(body, b.box(12.5, -(oH/2 - 0.2), -0.01,
+                                  13.5, -(iH/2) + 0.05, 0.5))
                 break
 
         # corner rear rebates along their two inner edges
