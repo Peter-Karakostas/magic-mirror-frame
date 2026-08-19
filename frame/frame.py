@@ -18,7 +18,7 @@ VERIFY: Inspect > Measure per docstring checklist of v1, plus:
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "v25-PROD-2026-08-18"
+__VERSION__ = "v26-PROD-2026-08-19"
 
 FINGER = 1.2   # cm tooth length
 NBANDS = 5     # depth bands (even bands protrude)
@@ -308,6 +308,13 @@ def run(context):
                 # v24: rear-face cable groove, pocket -> inner edge
                 b.cut(body, b.box(12.5, -(oH/2 - 0.2), -0.01,
                                   13.5, -(iH/2) + 0.05, 0.5))
+                # v26: MAINS EXIT NOTCH - single-piece, rear face,
+                # 10mm wide x 6mm deep, inner edge -> bottom edge at
+                # x=160mm (replaces the failed seam-split tunnel; rear
+                # panel gets a matching edge cutout where it crosses
+                # the rebate - script 06 note)
+                b.cut(body, b.box(15.5, -(oH/2) - 0.1, -0.01,
+                                  16.5, -(iH/2) + 0.1, 0.6))
                 break
 
         # corner rear rebates along their two inner edges
@@ -321,40 +328,6 @@ def run(context):
                                   cxi+sx*0.1, cyi+sy*rebW, rebD))
                 b.cut(body, b.box(cxi, cys-sy*0.1, -0.01,
                                   cxi+sx*rebW, cyi+sy*0.1, rebD))
-
-        # MAINS EXIT (v25 rewrite): 10mm hole through the bottom rail's
-        # cross-section AT the BR corner/rail seam. Built as a Y-axis
-        # cylinder via YZ-plane sketch, extruded a SHORT, TIGHTLY BOUNDED
-        # distance along X only (seam +-15mm) - v24's version spanned
-        # nearly the full mirror height due to an unverified extrude-
-        # direction assumption and may have missed the piece entirely.
-        seam_bx = (oW/2 - cext)
-        cross_mid = -(iH/2 + fW/2)          # vertical centre of bottom rail band
-        skm = root.sketches.add(root.yZConstructionPlane)
-        skm.sketchCurves.sketchCircles.addByCenterRadius(
-            adsk.core.Point3D.create(cross_mid, fD/2, 0), mainsD/2)
-        exm = root.features.extrudeFeatures.createInput(
-            skm.profiles.item(0),
-            adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-        exm.setTwoSidesExtent(
-            adsk.fusion.DistanceExtentDefinition.create(
-                adsk.core.ValueInput.createByReal(seam_bx + 1.5)),
-            adsk.fusion.DistanceExtentDefinition.create(
-                adsk.core.ValueInput.createByReal(-(seam_bx - 1.5))))
-        tun = root.features.extrudeFeatures.add(exm).bodies.item(0)
-        cutn = 0
-        for body in list(root.bRepBodies):
-            if body.name == "corner_BR" or body.name.startswith("rail_bottom"):
-                bb = body.boundingBox
-                if bb.minPoint.x - 0.2 < seam_bx < bb.maxPoint.x + 0.2:
-                    b.cut(body, tun, keep=True); cutn += 1
-        if tun.isValid: tun.deleteMe()
-        if cutn == 0:
-            ui.messageBox("WARNING: mains tunnel found no seam bodies - "
-                          "STOP, this is a real problem, tell Claude.")
-        elif cutn < 2:
-            ui.messageBox(f"WARNING: mains tunnel only cut {cutn} piece(s), "
-                          "expected 2 (rail_bottom_p3 + corner_BR).")
 
         # --- MONITOR SHELF-BEAM + STRAP pilot holes: horizontal M3
         # pilots through both vertical rails' inner faces. Beam carries
