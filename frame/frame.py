@@ -18,7 +18,7 @@ VERIFY: Inspect > Measure per docstring checklist of v1, plus:
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "v26-PROD-2026-08-19"
+__VERSION__ = "v27-PROD-2026-08-19"
 
 FINGER = 1.2   # cm tooth length
 NBANDS = 5     # depth bands (even bands protrude)
@@ -450,6 +450,87 @@ def run(context):
                 if bb.minPoint.x < hx < bb.maxPoint.x:
                     b.cut(body, pin, keep=True)
             if pin.isValid: pin.deleteMe()
+
+        # --- INNER (front-plane) mending plates v27: second plate set
+        # on the cavity-facing inner faces, z 36-56mm (3mm below glass
+        # slot). Recess 50x20(z16)x5mm deep + 2 horizontal M3 pilots
+        # (d2.8, 8mm). Side-rail corner-seam plates shift 15mm toward
+        # the corner to clear beam/strap pilots. Plates: 50x16x5mm
+        # counterbored (script 06); screws M3x12.
+        zi0, zi1, zim = 3.6, 5.6, 4.6
+        for axis, sign, cuts in seamREG:
+            n_ = len(cuts) - 1
+            for idx, sm in enumerate(cuts):
+                shift = 0.0
+                if axis == 'y' and (idx == 0 or idx == n_):
+                    shift = 1.5 * (1 if idx == n_ else -1)
+                ctr = sm + shift
+                if axis == 'x':
+                    face = sign * iH/2
+                    rec = b.box(ctr - 2.5, face, zi0,
+                                ctr + 2.5, face + sign*0.5, zi1)
+                else:
+                    face = sign * iW/2
+                    rec = b.box(face, ctr - 2.5, zi0,
+                                face + sign*0.5, ctr + 2.5, zi1)
+                rbb = rec.boundingBox
+                for body in list(root.bRepBodies):
+                    if body == rec: continue
+                    if not (body.name.startswith("rail")
+                            or body.name.startswith("corner")): continue
+                    bb = body.boundingBox
+                    if (bb.minPoint.x < rbb.maxPoint.x and
+                        bb.maxPoint.x > rbb.minPoint.x and
+                        bb.minPoint.y < rbb.maxPoint.y and
+                        bb.maxPoint.y > rbb.minPoint.y):
+                        b.cut(body, rec, keep=True)
+                if rec.isValid: rec.deleteMe()
+                for off in (-2.0, 2.0):
+                    pos = ctr + off
+                    if axis == 'x':
+                        skq = root.sketches.add(root.xZConstructionPlane)
+                        skq.sketchCurves.sketchCircles.addByCenterRadius(
+                            adsk.core.Point3D.create(pos, zim, 0), spD/2)
+                        eq = root.features.extrudeFeatures.createInput(
+                            skq.profiles.item(0),
+                            adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+                        d_far = abs(iH/2) + 1.35
+                        d_near = -(abs(iH/2) + 0.45)
+                        if sign < 0: d_far, d_near = d_far, d_near
+                        eq.setTwoSidesExtent(
+                            adsk.fusion.DistanceExtentDefinition.create(
+                                adsk.core.ValueInput.createByReal(
+                                    (iH/2 + 1.35) if sign > 0 else -(iH/2 + 0.45))),
+                            adsk.fusion.DistanceExtentDefinition.create(
+                                adsk.core.ValueInput.createByReal(
+                                    -(iH/2 + 0.45) if sign > 0 else (iH/2 + 1.35))))
+                        pin = root.features.extrudeFeatures.add(eq).bodies.item(0)
+                    else:
+                        skq = root.sketches.add(root.yZConstructionPlane)
+                        skq.sketchCurves.sketchCircles.addByCenterRadius(
+                            adsk.core.Point3D.create(pos, zim, 0), spD/2)
+                        eq = root.features.extrudeFeatures.createInput(
+                            skq.profiles.item(0),
+                            adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+                        eq.setTwoSidesExtent(
+                            adsk.fusion.DistanceExtentDefinition.create(
+                                adsk.core.ValueInput.createByReal(
+                                    (iW/2 + 1.35) if sign > 0 else -(iW/2 + 0.45))),
+                            adsk.fusion.DistanceExtentDefinition.create(
+                                adsk.core.ValueInput.createByReal(
+                                    -(iW/2 + 0.45) if sign > 0 else (iW/2 + 1.35))))
+                        pin = root.features.extrudeFeatures.add(eq).bodies.item(0)
+                    for body in list(root.bRepBodies):
+                        if body == pin: continue
+                        if not (body.name.startswith("rail")
+                                or body.name.startswith("corner")): continue
+                        bb = body.boundingBox
+                        if (bb.minPoint.x - 0.05 < (pos if axis=='x' else face) and
+                            (pos if axis=='x' else face) < bb.maxPoint.x + 0.05 and
+                            bb.minPoint.y - 0.05 < (face if axis=='x' else pos) and
+                            (face if axis=='x' else pos) < bb.maxPoint.y + 0.05):
+                            b.cut(body, pin, keep=True)
+                    if pin.isValid: pin.deleteMe()
 
         # --- rear panel M3 pilot holes in the rebate ledge ---
         for axis, sign, nm in (('x',+1,"rail_top"),('x',-1,"rail_bottom"),
