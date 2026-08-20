@@ -18,7 +18,7 @@ VERIFY: Inspect > Measure per docstring checklist of v1, plus:
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "v27-PROD-2026-08-19"
+__VERSION__ = "v28-PROD-2026-08-20"
 
 FINGER = 1.2   # cm tooth length
 NBANDS = 5     # depth bands (even bands protrude)
@@ -239,7 +239,11 @@ def run(context):
                        cy_i+sy*0.01, z_slot_f)
             s2 = b.box(cx_s-sx*2, cy_i, z_slot_b, cx_i+sx*0.01,
                        cy_i+sy*grv, z_slot_f)
-            b.cut(body, s1); b.cut(body, s2)
+            # v28: the corner SQUARE where the two slot legs meet -
+            # was never cut; glass corners jammed against solid block
+            s3 = b.box(cx_i, cy_i, z_slot_b, cx_i+sx*grv,
+                       cy_i+sy*grv, z_slot_f)
+            b.cut(body, s1); b.cut(body, s2); b.cut(body, s3)
             Px, Py = cx_i + sx*(grv+lsw), cy_i + sy*(grv+lsw)
             # straight legs up to the bend tangents
             b.cut(body, b.box(cx_s - sx*2, Py, z_ch_b,
@@ -328,6 +332,9 @@ def run(context):
                                   cxi+sx*0.1, cyi+sy*rebW, rebD))
                 b.cut(body, b.box(cxi, cys-sy*0.1, -0.01,
                                   cxi+sx*rebW, cyi+sy*0.1, rebD))
+                # v28: rebate corner square (same missed-corner class)
+                b.cut(body, b.box(cxi, cyi, -0.01,
+                                  cxi+sx*rebW, cyi+sy*rebW, rebD))
 
         # --- MONITOR SHELF-BEAM + STRAP pilot holes: horizontal M3
         # pilots through both vertical rails' inner faces. Beam carries
