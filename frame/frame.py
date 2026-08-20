@@ -18,7 +18,7 @@ VERIFY: Inspect > Measure per docstring checklist of v1, plus:
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "v29-PROD-2026-08-20"
+__VERSION__ = "v30-PROD-2026-08-20"
 
 FINGER = 1.2   # cm tooth length
 NBANDS = 5     # depth bands (even bands protrude)
@@ -312,13 +312,25 @@ def run(context):
                 # v24: rear-face cable groove, pocket -> inner edge
                 b.cut(body, b.box(12.5, -(oH/2 - 0.2), -0.01,
                                   13.5, -(iH/2) + 0.05, 0.5))
-                # v26: MAINS EXIT NOTCH - single-piece, rear face,
-                # 10mm wide x 6mm deep, inner edge -> bottom edge at
-                # x=160mm (replaces the failed seam-split tunnel; rear
-                # panel gets a matching edge cutout where it crosses
-                # the rebate - script 06 note)
-                b.cut(body, b.box(15.5, -(oH/2) - 0.1, -0.01,
-                                  16.5, -(iH/2) + 0.1, 0.6))
+                # v30: MAINS EXIT GROOVE - rounded half-cylinder,
+                # 16mm wide x 8mm deep (r=8), rear face, inner edge ->
+                # bottom edge at x=160mm. Cylinder centred ON the rear
+                # face plane -> semicircular channel. Rear panel edge
+                # cutout: matching 16mm half-round - script 06 note.
+                skg = root.sketches.add(root.xZConstructionPlane)
+                skg.sketchCurves.sketchCircles.addByCenterRadius(
+                    adsk.core.Point3D.create(16.0, 0.0, 0), 0.8)
+                eg = root.features.extrudeFeatures.createInput(
+                    skg.profiles.item(0),
+                    adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+                eg.setTwoSidesExtent(
+                    adsk.fusion.DistanceExtentDefinition.create(
+                        adsk.core.ValueInput.createByReal(oH/2 + 0.1)),
+                    adsk.fusion.DistanceExtentDefinition.create(
+                        adsk.core.ValueInput.createByReal(oH/2 + 0.1)))
+                gpin = root.features.extrudeFeatures.add(eg).bodies.item(0)
+                b.cut(body, gpin, keep=True)
+                if gpin.isValid: gpin.deleteMe()
                 break
 
         # corner rear rebates along their two inner edges

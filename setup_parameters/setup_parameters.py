@@ -8,7 +8,7 @@ PLACEHOLDER values are marked; replace them once measured, then re-run.
 
 import adsk.core, adsk.fusion, traceback
 
-__VERSION__ = "v29-PROD-2026-08-20"
+__VERSION__ = "v30-PROD-2026-08-20"
 
 # name: (expression_mm, comment)
 PARAMS = {
