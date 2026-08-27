@@ -7,7 +7,7 @@ MEASURED INPUTS (2026-08-27): monitor portrait 605x353mm, bottom edge
 (wall relieved 100mm - place that half on the button-strip side),
 connectors point rearward (clean shelf), PSU near top.
 
-__VERSION__ = "v33-PROD-2026-08-27"
+__VERSION__ = "v34-PROD-2026-08-27"
 """
 import adsk.core, adsk.fusion, traceback
 
@@ -101,6 +101,13 @@ def run(context):
             # end plate + driver window
             cut(b_, box(x_out - s*(PLATE_T+WIN_L), y0-0.01, z0+0.2,
                         x_out - s*PLATE_T, y1+0.01, z1-0.3))
+            # v34: screw holes as EXPLICIT box cuts through the plate
+            # (sketch-plane pins failed silently twice; box cuts are the
+            # method every visible feature in this script was made with).
+            # 3.6mm square = identical clearance fit for the M3 shank.
+            for hy, hz in holes:
+                cut(b_, box(x_out - s*(PLATE_T+0.05), hy-0.18, hz-0.18,
+                            x_out + s*0.05, hy+0.18, hz+0.18))
             return b_
 
         halves = []
@@ -112,27 +119,6 @@ def run(context):
             STRAP_Y0, STRAP_Y1, STRAP_Z0, STRAP_Z1, False, [STRAP_HOLE], False))
         halves.append(support_half(-HALF, "strap_half_B",
             STRAP_Y0, STRAP_Y1, STRAP_Z0, STRAP_Z1, False, [STRAP_HOLE], False))
-
-        # screw holes: symmetric full-span pins (verified pattern) through
-        # both end plates at once
-        for hy, hz in list(BEAM_HOLES) + [STRAP_HOLE]:
-            sk = root.sketches.add(root.yZConstructionPlane)
-            sk.sketchCurves.sketchCircles.addByCenterRadius(
-                P(hy, hz, 0), HOLE_D/2)
-            ei = root.features.extrudeFeatures.createInput(
-                sk.profiles.item(0),
-                adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-            ei.setTwoSidesExtent(
-                adsk.fusion.DistanceExtentDefinition.create(
-                    adsk.core.ValueInput.createByReal(HALF+0.1)),
-                adsk.fusion.DistanceExtentDefinition.create(
-                    adsk.core.ValueInput.createByReal(HALF+0.1)))
-            pin = root.features.extrudeFeatures.add(ei).bodies.item(0)
-            for b_ in halves:
-                bb = b_.boundingBox
-                if bb.minPoint.y - 0.05 < hy < bb.maxPoint.y + 0.05:
-                    cut(b_, pin, keep=True)
-            if pin.isValid: pin.deleteMe()
 
         for sk in list(root.sketches):
             try: sk.deleteMe()
