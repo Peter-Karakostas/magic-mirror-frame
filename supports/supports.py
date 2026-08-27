@@ -7,7 +7,7 @@ MEASURED INPUTS (2026-08-27): monitor portrait 605x353mm, bottom edge
 (wall relieved 100mm - place that half on the button-strip side),
 connectors point rearward (clean shelf), PSU near top.
 
-__VERSION__ = "v34-PROD-2026-08-27"
+__VERSION__ = "v35-PROD-2026-08-27"
 """
 import adsk.core, adsk.fusion, traceback
 
@@ -76,7 +76,7 @@ def run(context):
                 # the end zones -> 21mm gap behind beam (rear plane to
                 # z=2.4), clearing the button passage (18mm) fully
                 cut(b_, box(s*0.0, BODY_Y0-0.01, BODY_Z0-0.01,
-                            x_out - s*3.0, BODY_Y1-0.8, 2.4))
+                            x_out - s*(PLATE_T+WIN_L), BODY_Y1-0.8, 2.4))
                 # v32 CABLE ARCHES: 20x8mm scallops on the bottom edge
                 for ax in (4.0, 12.0, 20.0):
                     if ax < abs(x_out) - 3.2:
@@ -105,9 +105,15 @@ def run(context):
             # (sketch-plane pins failed silently twice; box cuts are the
             # method every visible feature in this script was made with).
             # 3.6mm square = identical clearance fit for the M3 shank.
+            hook = holes[1] if shelf else holes[0]
             for hy, hz in holes:
                 cut(b_, box(x_out - s*(PLATE_T+0.05), hy-0.18, hz-0.18,
                             x_out + s*0.05, hy+0.18, hz+0.18))
+                if (hy, hz) == hook:
+                    # v35 HOOK SLOT: open upward to the plate's top edge -
+                    # pre-set this screw in the rail, lower the part onto it
+                    cut(b_, box(x_out - s*(PLATE_T+0.05), hy-0.18, hz-0.18,
+                                x_out + s*0.05, y1+0.01, hz+0.18))
             return b_
 
         halves = []
