@@ -7,7 +7,7 @@ MEASURED INPUTS (2026-08-27): monitor portrait 605x353mm, bottom edge
 (wall relieved 100mm - place that half on the button-strip side),
 connectors point rearward (clean shelf), PSU near top.
 
-__VERSION__ = "v32-PROD-2026-08-27"
+__VERSION__ = "v33-PROD-2026-08-27"
 """
 import adsk.core, adsk.fusion, traceback
 
@@ -25,7 +25,7 @@ RELIEF   = 10.0                 # wall stops this far from one end
 PLATE_T  = 0.4                  # end screw-plates
 WIN_L    = 2.2                  # driver window length
 HOLE_D   = 0.34                 # M3 clearance
-BEAM_HOLES = ((-32.0/10, 2.0), (-32.0/10, 4.5))  # (y,z) - y in cm below
+BEAM_HOLES = ((-32.0, 2.0), (-32.0, 4.5))  # (y,z) cm - printed rail pilots
 STRAP_Y0, STRAP_Y1 = 30.4, 32.4
 STRAP_Z0, STRAP_Z1 = 2.6, 5.35
 STRAP_HOLE = (31.3, 3.0)
@@ -91,10 +91,11 @@ def run(context):
                 join(b_, box(0, BODY_Y1, WALL_Z0, wx1, WALL_Y1, 5.3))
             # centre finger joint: 3 vertical teeth on +x half, recesses on -x
             th = (y1-y0)/3
+            tz0 = (2.4 if shelf else z0) + JC   # beam teeth sit above highway
             for k in range(3):
                 ty0, ty1 = y0+k*th, y0+(k+1)*th
                 if s > 0 and k % 2 == 0:
-                    join(b_, box(0, ty0+JC, z0+JC, -1.0+JC, ty1-JC, z1-JC))
+                    join(b_, box(0, ty0+JC, tz0, -1.0+JC, ty1-JC, z1-JC))
                 if s < 0 and k % 2 == 0:
                     cut(b_, box(0.01, ty0, z0-0.01, -1.0, ty1, z1+0.01))
             # end plate + driver window
