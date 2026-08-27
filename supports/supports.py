@@ -7,7 +7,7 @@ MEASURED INPUTS (2026-08-27): monitor portrait 605x353mm, bottom edge
 (wall relieved 100mm - place that half on the button-strip side),
 connectors point rearward (clean shelf), PSU near top.
 
-__VERSION__ = "v31-PROD-2026-08-27"
+__VERSION__ = "v32-PROD-2026-08-27"
 """
 import adsk.core, adsk.fusion, traceback
 
@@ -72,6 +72,21 @@ def run(context):
             b_.name = name
             if shelf:   # beam only: shelf ledge + wall
                 join(b_, box(0, BODY_Y1-0.8, WALL_Z0, x_out, BODY_Y1, SHELF_Z1))
+                # v32 CABLE HIGHWAY: clear the rear of the body between
+                # the end zones -> 21mm gap behind beam (rear plane to
+                # z=2.4), clearing the button passage (18mm) fully
+                cut(b_, box(s*0.0, BODY_Y0-0.01, BODY_Z0-0.01,
+                            x_out - s*3.0, BODY_Y1-0.8, 2.4))
+                # v32 CABLE ARCHES: 20x8mm scallops on the bottom edge
+                for ax in (4.0, 12.0, 20.0):
+                    if ax < abs(x_out) - 3.2:
+                        cut(b_, box(s*ax-1.0, BODY_Y0-0.01, 2.3,
+                                    s*ax+1.0, BODY_Y0+0.8, 5.4))
+                # v32 ZIP-TIE SLOTS: through-slots for strapping runs
+                for zx in (8.0, 16.0):
+                    if zx < abs(x_out) - 3.2:
+                        cut(b_, box(s*zx-0.2, -31.6, 2.3,
+                                    s*zx+0.2, -31.0, 5.4))
                 wx1 = x_out - s*RELIEF if relief else x_out
                 join(b_, box(0, BODY_Y1, WALL_Z0, wx1, WALL_Y1, 5.3))
             # centre finger joint: 3 vertical teeth on +x half, recesses on -x
