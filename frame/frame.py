@@ -1,4 +1,14 @@
-"""Magic Mirror - Step 5 (v31): frame with PLUG-IN POLE JOINTS.
+"""Magic Mirror - Step 5 (v32): frame with PLUG-IN POLE JOINTS + OUTER LIP.
+
+v32 against v31:
+  * NO mending plates at all (rear recesses and pilots removed).
+  * Every seam: the pole piece's OUTER side wall runs 6 mm past the seam
+    as a 2 mm lip; the hole piece has a matching step. The seam on the
+    outer edge becomes an overlap (no open gap), and the lip lines the
+    outer faces up.
+  * Service seams (bottom corner <-> side rail, left unglued): 4 lock
+    screws each instead of 2, since there are no plates.
+(v31 notes follow)
 
 Run order, in a FRESH empty design every time:  01_setup_v31  ->  this.
 
@@ -19,7 +29,7 @@ What changed against v30 (the frame that was printed):
      rear so the beam drops in from behind (script 07_supports_v36).
 
 Also: LED channel is 18 mm wide (setup v31). Inner mending plates are
-gone (poles replace them); rear mending-plate recesses stay.
+gone (poles replace them).
 Every cut/join is volume-checked: the final dialog lists any operation
 that did nothing. If that list is not empty, DO NOT PRINT.
 
@@ -28,7 +38,7 @@ plane. Nothing in this file uses an XZ/YZ sketch plane.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "v31-POLES-2026-11-21"
+__VERSION__ = "v32-POLES-LIP-2026-11-21"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
@@ -38,6 +48,9 @@ POLE_CLR      = 0.03   # glue/fit clearance per side
 POLE_ROOF     = 0.02   # extra on the hole roof (bridged layers sag)
 SOCK_EXTRA    = 0.10   # hole is this much deeper than the pole
 TIP_LEN, TIP_IN = 0.4, 0.05   # lead-in: last 4 mm of a pole is 0.5 mm slimmer/side
+LIP_LEN, LIP_T = 0.6, 0.2     # outer-wall lip: 6 mm past the seam, 2 mm thick
+LIP_CLR, LIP_END = 0.015, 0.02  # 0.15 mm behind the lip, 0.2 mm at its tip
+LOCK_AT = (1.6, 3.1)          # lock screws: distance from the seam (cm)
 # pole layouts: (r0, r1, z0, z1); r = distance from the rail's INNER face
 LAY_W = ((0.6, 2.0, 0.9, 2.5), (4.0, 5.4, 0.9, 2.5), (2.3, 3.7, 3.6, 5.2))
 LAY_N = ((1.7, 3.1, 0.9, 2.5), (4.1, 5.5, 0.9, 2.5), (2.9, 4.3, 3.6, 5.2))
@@ -332,20 +345,23 @@ def run(context):
                                      r0 - POLE_CLR, r1 + POLE_CLR,
                                      z0 - POLE_CLR, z1 + POLE_CLR + POLE_ROOF),
                       "hole for " + tag)
-            # rear mending-plate recess 50x20x3 across the seam + pilots
-            for body in (PCS[lo], PCS[hi]):
-                b.cut(body, rbox(axis, sign, a - 2.5, a + 2.5, 2.5, 4.5,
-                                 -0.01, rebD), f"plate recess @ {axis}={a*10:.0f}")
-            b.cut(PCS[lo], rcyl(axis, sign, a - 2.0, 3.5, -0.01, 0.8, spD),
-                  "plate pilot")
-            b.cut(PCS[hi], rcyl(axis, sign, a + 2.0, 3.5, -0.01, 0.8, spD),
-                  "plate pilot")
+            # outer-wall lip on the pole piece + matching step on the
+            # hole piece (full depth, outer side face only)
+            b.join(carrier, rbox(axis, sign, a - d*0.2, a + d*LIP_LEN,
+                                 fW - LIP_T, fW, 0, fD),
+                   f"outer lip @ {axis}={a*10:.0f}")
+            b.cut(receiver, rbox(axis, sign, a - d*0.01,
+                                 a + d*(LIP_LEN + LIP_END),
+                                 fW - LIP_T - LIP_CLR, fW + 0.01,
+                                 -0.01, fD + 0.01),
+                  f"step for outer lip @ {axis}={a*10:.0f}")
             if lock:
                 # SERVICE SEAM (bottom corner <-> side rail): left unglued.
                 # M3x12 from the rear through the rail wall into the two
                 # rear poles = removable shear pins.
-                for (r0, r1, z0, z1) in lay[:2]:
-                    rc, al = (r0 + r1)/2, a + d*3.1
+                for (r0, r1, z0, z1), la in [(q, t) for q in lay[:2]
+                                             for t in LOCK_AT]:
+                    rc, al = (r0 + r1)/2, a + d*la
                     b.cut(receiver, rbox(axis, sign, al - 0.325, al + 0.325,
                                          rc - 0.325, rc + 0.325, -0.01, 0.5),
                           "lock screw head pocket")
@@ -490,7 +506,8 @@ def run(context):
             f"{POLE_LEN*10:.0f} mm deep ({POLE_LEN_SIDE*10:.0f} on side mid seams).\n"
             "Look for, before exporting:\n"
             " - corners: rounded channel bend, NO square notch\n"
-            " - every seam: 3 poles on one piece, 3 holes on the other\n"
+            " - every seam: 3 poles + a thin outer-wall lip on one piece,\n"
+            "   3 holes + a step on the other. NO plate recesses anywhere\n"
             " - bottom rail back face: solid, except the mains groove\n"
             " - bottom rail top face: button opening (middle piece),\n"
             "   radar slot, 4 beam foot sockets\n"
