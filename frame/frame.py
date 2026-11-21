@@ -1,64 +1,36 @@
-"""Magic Mirror - Step 5 (v34): bigger RADAR chamber + front WINDOW.
+"""Magic Mirror - frame: all frame pieces, assembled in place.
 
-v34 against v33 - only the radar space in the bottom rail changed:
-  * chamber 45 mm long x 22 mm deep (was 37 x 10), opening in the top
-    (cavity) face of the bottom rail, 145 mm right of centre; still
-    closed at the back. Room for the board's upright connector + plug.
-  * the sensor looks through a WINDOW in the front wall (32 x 7.5 mm),
-    closed by a separate 1.5 mm cap (body "radar_window_cap") that sits
-    flush in a recess. Print the cap in PLAIN PETG/PLA (no carbon fibre).
-  * the board (35 x 7 mm LD2410 / LD2410B) rests on a 1.5 mm ledge at
-    each end, antenna 12.5 mm behind the cap (maker recommends 12.4).
-(v33 notes follow)
+Run order, in a NEW EMPTY design every time:  setup_parameters -> frame.
+(frame_test_pair builds only one short joint pair, from this same file.)
 
-v33 against v32: the 2 mm lip now runs round the whole section of the
-pole piece (outer side, front face, inner side, back face), 5 mm past
-the seam; the hole piece is stepped in all round to slide inside it.
-The lip is interrupted only where the section is open anyway (LED
-channel mouth, glass slot mouth, rear panel rebate). On the two
-service seams (bottom corner <-> side rail) the INNER side has no lip,
-because the monitor-beam slot sits right there.
-(v32 notes follow)
+What it builds (17 bodies): 12 rail pieces, 4 corners, radar_window_cap.
+  * Joints: every seam has 3 square poles (14 x 16 mm, 40 mm deep; 31 mm
+    on the two mid seams of each side rail - bed limit) into 3 holes,
+    plus a 2 mm lip all round the pole piece's end that slides over a
+    step on the hole piece. No mending plates.
+  * Service seams (bottom corner <-> side rail) are left unglued:
+    4x M3x12 lock screws each, from the back into the poles. No inner
+    lip there (the monitor-beam slot sits next to the seam).
+  * Corners: glass slot + rounded LED channel bend (18 mm channel).
+  * Bottom rail: closed at the back. Button pocket and radar chamber
+    open through the top (cavity) face. LED wires drop through two wire
+    slots into the button pocket. Mains lead: rounded groove 16 x 8 mm
+    across the back, 160 mm right of centre.
+  * Radar (35 x 7 mm LD2410 / LD2410B): chamber 45 x 22 mm, 145 mm
+    right of centre; window through the front wall closed by the
+    separate 1.5 mm cap - print radar_window_cap in PLAIN PETG/PLA.
+  * Monitor rest beam seats: 10 mm slots in both side rails + four 8 mm
+    foot sockets in the bottom rail, open to the rear (see supports).
+  * Top rail: 4 cleat bolt points (M4 + captured nut), x = +-42, +-130.
 
-v32 against v31:
-  * NO mending plates at all (rear recesses and pilots removed).
-  * Every seam: the pole piece's OUTER side wall runs 6 mm past the seam
-    as a 2 mm lip; the hole piece has a matching step. The seam on the
-    outer edge becomes an overlap (no open gap), and the lip lines the
-    outer faces up.
-  * Service seams (bottom corner <-> side rail, left unglued): 4 lock
-    screws each instead of 2, since there are no plates.
-(v31 notes follow)
-
-Run order, in a FRESH empty design every time:  01_setup_v31  ->  this.
-
-What changed against v30 (the frame that was printed):
-  1. Corner "relief squares" REMOVED (channel bend is the plain rounded
-     sweep only).
-  2. Bottom rail pockets are CLOSED at the back. Button pocket and radar
-     chamber open only through the inner (cavity-facing, upward) face of
-     the bottom rail. LED strip wires drop through the two wire slots
-     into the button pocket and leave through the same opening.
-     Mains lead: rounded groove 16 x 8 mm across the back of the bottom
-     rail at x = +160 mm (box cuts only - no sketch-plane extrudes).
-  3. Finger teeth REMOVED. Every seam has 3 square poles on one piece
-     and 3 matching holes in its neighbour (14 x 16 mm section, 40 mm
-     deep; 31 mm on the two mid seams of each side rail - bed limit).
-  4. Monitor rest beam seats: 10 mm deep slots in both side rails plus
-     four 8 mm deep foot sockets in the bottom rail, all open to the
-     rear so the beam drops in from behind (script 07_supports_v36).
-
-Also: LED channel is 18 mm wide (setup v31). Inner mending plates are
-gone (poles replace them).
 Every cut/join is volume-checked: the final dialog lists any operation
 that did nothing. If that list is not empty, DO NOT PRINT.
-
-All holes are explicit box cuts or vertical cylinders drawn on the XY
-plane. Nothing in this file uses an XZ/YZ sketch plane.
+All holes are box cuts or vertical cylinders drawn on the XY plane.
+History of earlier versions: see git log and the archive folder.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "v34-RADARWINDOW-2026-11-21"
+__VERSION__ = "2026-11-21"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
@@ -102,7 +74,7 @@ HPIL     = 0.26        # horizontal M3 pilot (square, box cut)
 def p(design, name):
     prm = design.userParameters.itemByName(name)
     if not prm:
-        raise RuntimeError(f"Missing parameter '{name}' - run 01 first.")
+        raise RuntimeError(f"Missing parameter '{name}' - run setup_parameters first.")
     return prm.value
 
 
@@ -190,7 +162,7 @@ def run(context):
         if abs(chW - 1.8) > 1e-6:
             ui.messageBox(
                 f"STOP [{__VERSION__}]: ledChW is {chW*10:.1f} mm, expected 18.0.\n"
-                "Run 01_setup_v31 in a fresh design first, then this script.")
+                "Run setup_parameters in a new empty design first, then this script.")
             return
 
         # ---- all reads done -> direct modeling ----
@@ -315,7 +287,6 @@ def run(context):
                 adsk.fusion.FeatureOperations.NewBodyFeatureOperation
                 ).bodies.item(0)
             b.cut(body, pie, "channel rounded bend")
-            # (v31: NO relief square here any more)
 
             # rear rebate along both inner edges + its corner square
             b.cut(body, b.box(cx_s - sx*0.01, cy_i, -0.01,
@@ -490,7 +461,7 @@ def run(context):
                       "beam foot socket")
 
         # =============== SMALL FIXINGS ===============
-        # top strap pilots (strap parts unchanged from supports v35)
+        # top strap pilots
         for sx, nm in ((+1, "rail_right"), (-1, "rail_left")):
             b.cut(piece(nm, cutsY, 31.3),
                   rbox('y', sx, 31.3 - HPIL/2, 31.3 + HPIL/2, -0.01, 1.0,
@@ -579,6 +550,6 @@ def run(context):
             " - bottom rail FRONT face: radar window + separate thin cap\n"
             "   (print radar_window_cap in plain PETG/PLA, not CF)\n"
             " - side rails, bottom end: beam slot + screw-tab recess\n"
-            "Print ONE test pair (TEST script) before the frame.")
+            "Print ONE test pair (frame_test_pair) before the frame.")
     except Exception:
         if ui: ui.messageBox("Failed:\n{}".format(traceback.format_exc()))

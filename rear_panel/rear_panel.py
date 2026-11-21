@@ -1,4 +1,4 @@
-"""Magic Mirror - REAR PANEL: 6 tiles (2 cols x 3 rows), 3mm, flush in
+"""Magic Mirror - rear_panel: 6 tiles (2 cols x 3 rows), 3mm, flush in
 the rebate, screwed to the 12 rebate pilots. Vent arrays throughout.
 Fresh design, direct mode, no parameters. Box cuts only.
 
@@ -6,8 +6,8 @@ Fresh design, direct mode, no parameters. Box cuts only.
 >>> 16.0 matches the modeled groove. IF YOUR GROOVE IS HAND-CUT
 >>> ELSEWHERE, measure and change this number BEFORE running.
 
-__VERSION__ = "v36-PROD-2026-08-28"
 """
+__VERSION__ = "2026-11-21"
 import adsk.core, adsk.fusion, traceback
 
 MAINS_X = 16.0          # cm from frame centre to mains groove centre
@@ -81,7 +81,7 @@ def run(context):
             try: sk.deleteMe()
             except: pass
         app.activeViewport.fit()
-        ui.messageBox(f"[v36-PROD] {made} panel tiles built. Tiles are\n"
+        ui.messageBox(f"Rear panel [{__VERSION__}]: {made} tiles built. Tiles are\n"
             f"{cw*10:.0f}x{rh*10:.0f}mm (fit the X2D's 256mm bed; small\n"
             "brim). VERIFY: square screw holes align over the 12 pilot\n"
             "positions, half-holes on the centre seam, mains notch at\n"

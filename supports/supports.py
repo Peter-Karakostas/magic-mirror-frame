@@ -1,10 +1,10 @@
-"""Magic Mirror - monitor supports for FRAME v31 (pole-joint frame).
+"""Magic Mirror - supports: monitor rest beam + top strap.
 
 Run in a FRESH design (no parameters needed). Builds 4 bodies:
   beam_relief_half, beam_plain_half  - the REST BEAM the monitor sits on
-  strap_half_A, strap_half_B         - top strap (unchanged from v35)
+  strap_half_A, strap_half_B         - top strap (hook slot + M3)
 
-REST BEAM v36 - drops into the frame from behind, no side screws:
+REST BEAM - drops into the frame from behind, no side screws:
   * each end has a 10 mm tongue that sits in the slot in the side rail
   * two feet per half stand in 8 mm sockets in the bottom rail
     (feet at 40-70 and 180-215 mm from centre: clear of the button
@@ -18,13 +18,13 @@ REST BEAM v36 - drops into the frame from behind, no side screws:
 The relief half (lip stops 100 mm short) goes on the monitor's
 button-strip side, as before.
 
-ONLY fits frame v31. It does not fit the frame printed from v30.
+Only fits the pole-joint frame (frame.py), not the first printed frame.
 """
 import adsk.core, adsk.fusion, traceback
 
-__VERSION__ = "v36-SEATED-2026-11-21"
+__VERSION__ = "2026-11-21"
 
-# ---- constants (cm) - must match 05_frame_v31 ----
+# ---- constants (cm) - must match frame/frame.py ----
 IN_X    = 24.25            # side rail inner face (opening 485)
 IN_Y    = -35.5            # bottom rail inner face
 GAP     = 0.1              # beam body stops 1 mm short of the rail face
@@ -42,7 +42,7 @@ TAB_Z1  = 3.0
 TAB_SCREW = (IN_X + 0.5, -29.3)        # matches the pilot in the rail
 CENTRE_GAP = 0.02
 
-# ---- top strap (unchanged v35 geometry) ----
+# ---- top strap ----
 SPAN = 48.3; HALF = SPAN/2; JC = 0.04
 PLATE_T = 0.4; WIN_L = 2.2
 STRAP_Y0, STRAP_Y1 = 30.4, 32.4
@@ -124,7 +124,7 @@ def run(context):
                             s*zx + 0.2, -31.6, Z1 + 0.01), "zip-tie slot")
             return b_
 
-        # ------------------------------------------------ TOP STRAP (v35)
+        # ------------------------------------------------ TOP STRAP
         def strap_half(x_out, name):
             s = 1 if x_out > 0 else -1
             y0, y1, z0, z1 = STRAP_Y0, STRAP_Y1, STRAP_Z0, STRAP_Z1
@@ -160,11 +160,11 @@ def run(context):
         chk = ("SELF-CHECK FAILED - DO NOT PRINT:\n  " + "\n  ".join(failed)
                if failed else "Self-check: 0 failed operations.")
         ui.messageBox(
-            f"Supports [{__VERSION__}] for FRAME v31 only.\n{chk}\n\n"
+            f"Supports [{__VERSION__}]\n{chk}\n\n"
             "Rest beam: 2 halves. Each has an end tongue (side-rail slot),\n"
             "2 feet (bottom-rail sockets) and a thin tab with one M3 hole.\n"
             "Drops in from the back; relief half on the button-strip side.\n"
-            "Strap halves: unchanged (hook slot + M3).\n"
+            "Strap halves: hook slot + M3.\n"
             "Print beams flat on the back face; rotate 45 deg if too long.")
     except Exception:
         if ui: ui.messageBox("Failed:\n{}".format(traceback.format_exc()))

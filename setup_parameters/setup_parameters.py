@@ -1,4 +1,5 @@
-"""Magic Mirror - Step 1: create/update all user parameters.
+"""Magic Mirror - setup_parameters: create/update all user parameters.
+Run this FIRST, in a new empty design, then run frame (or frame_test_pair).
 
 Run inside Fusion 360: Utilities > Add-Ins > Scripts > + > pick this file > Run.
 Safe to re-run: existing parameters are updated, not duplicated.
@@ -8,7 +9,7 @@ PLACEHOLDER values are marked; replace them once measured, then re-run.
 
 import adsk.core, adsk.fusion, traceback
 
-__VERSION__ = "v31-POLES-2026-11-21"
+__VERSION__ = "2026-11-21"
 
 # name: (expression_mm, comment)
 PARAMS = {
@@ -31,7 +32,7 @@ PARAMS = {
 
     # --- LED (BTF FCOB addressable WS2811/WS2814, 10mm strip, FLAT-mounted,
     #     L-corner connectors -> square light path inside rounded exterior) ---
-    "ledChW":        ("18 mm",   "Channel width 18 (v31). v20-v30 files said 13 by mistake - the printed frame #1 is 13"),
+    "ledChW":        ("18 mm",   "Channel width (frame #1 was printed at 13)"),
     "ledChD":        ("14 mm",   "Deep channel: connector fully hidden + 9-10mm LED-to-diffuser gap (kills hotspots)"),
     "brkPockLen":    ("72 mm",   "BOXPUT fold-bracket pocket leg length (64.5 + margin)"),
     "brkPockWiden":  ("5 mm",    "Corner pocket inner widening (channel 13->18mm, wall to slot 4mm)"),
@@ -41,7 +42,7 @@ PARAMS = {
     "mainsHoleD":    ("10 mm",   "Mains cable exit tunnel dia - seam-split at BR corner"),
     "rebateD":       ("3 mm",    "Rear panel rebate depth (panel sits flush)"),
     "rebateW":       ("10 mm",   "Rear panel rebate ledge width"),
-    "ledSlotWall":   ("15 mm",   "Slot-to-channel wall (v20 uniform-channel geometry)"),
+    "ledSlotWall":   ("15 mm",   "Slot-to-channel wall"),
     "btnRecessD":    ("26 mm",   "Widened channel opening for button head"),
     "btnPockW":      ("56 mm",   "Service pocket (W=H): nut, fingers, JST room (coupon v1)"),
     "btnNutClear":   ("17 mm",   "Wire slots start this far from button centre (clear of nut seat)"),
@@ -83,8 +84,8 @@ PARAMS = {
     "ventPitch":     ("60 mm",   "Spacing between vent slots"),
 
     # --- Joinery / printing ---
-    "jointClear":    ("0.4 mm",  "UNUSED since v31 (pole joints: clearances are constants in 05)"),
-    "fingerLen":     ("12 mm",   "UNUSED since v31 (no finger teeth)"),
+    "jointClear":    ("0.4 mm",  "UNUSED (pole joints: clearances are constants in frame.py)"),
+    "fingerLen":     ("12 mm",   "UNUSED (no finger teeth)"),
     "filletR":       ("2.5 mm",  "Internal corner fillet radius - EVERY inside corner"),
     "bedMax":        ("250 mm",  "Usable print length per piece (X2D)"),
 }
