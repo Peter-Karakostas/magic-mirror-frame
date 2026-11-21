@@ -47,10 +47,17 @@ folders side by side.
 
 ## Assembly notes
 
-- Every seam is screwed from the back: 4x M3x12 into the two rear poles
-  and 1x M3x45 through the rail into the front pole (64 + 16 in total).
-- Assemble with screws only first and hang it. Glue (slow-cure epoxy)
-  only the seams that need it.
+- No glue by design. Every seam is screwed from the back: 4x M3x12 into
+  the two rear poles and 1x M3x45 through the rail into the front pole
+  (64 + 16 machine screws in total).
+- The screws go into M3 heat-set inserts (M3 x 5.7 mm, 80 in total)
+  pressed into the poles before assembly: four into the underside of the
+  two rear poles, one into the underside of the front pole. The seat is a
+  straight 4.0 mm hole, so the insert's narrow end drops in and stands
+  upright before heating. Press each one in until it is just below the
+  surface; the shallow dish round the hole takes the melted rim.
+- If it flexes when hung, any seam can still be glued later with
+  slow-cure epoxy.
 - Never glue the two bottom-corner-to-side-rail seams: the bottom section
   comes off there so the glass can drop out.
 - Not yet proven in plastic: pole/lip fit, joint stiffness under load,

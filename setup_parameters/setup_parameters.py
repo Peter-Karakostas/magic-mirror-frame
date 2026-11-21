@@ -9,7 +9,7 @@ PLACEHOLDER values are marked; replace them once measured, then re-run.
 
 import adsk.core, adsk.fusion, traceback
 
-__VERSION__ = "2026-11-21.5"
+__VERSION__ = "2026-11-21.7"
 
 # name: (expression_mm, comment)
 PARAMS = {
@@ -43,14 +43,14 @@ PARAMS = {
     "rebateD":       ("3 mm",    "Rear panel rebate depth (panel sits flush)"),
     "rebateW":       ("10 mm",   "Rear panel rebate ledge width"),
     "ledSlotWall":   ("15 mm",   "Slot-to-channel wall"),
-    "btnRecessD":    ("26 mm",   "Widened channel opening for button head"),
+    "btnRecessD":    ("23 mm",   "OUTER opening in the LED channel. Was 26: the head dropped through it. 23 = guess: body (22) passes, head (about 25) rests on the front rim"),
     "btnPockW":      ("56 mm",   "Service pocket (W=H): nut, fingers, JST room (coupon v1)"),
     "btnNutClear":   ("17 mm",   "Wire slots start this far from button centre (clear of nut seat)"),
     "cablePassW":    ("10 mm",   "Wire slot length (radial)"),
     "cablePassH":    ("9 mm",    "Wire slot height - fits JST pre-fitted (coupon v1: too small)"),
 
     # --- Button: 22mm momentary metal, 3-8V white ring ---
-    "btnHoleD":      ("20 mm",   "GUESS (no measurement): button dropped through 22.3, so assumed 22 head / 19 body. Check on the test piece"),
+    "btnHoleD":      ("22.3 mm", "INNER hole through the channel floor: 22 mm button body + print clearance (fit-tested on the first coupon)"),
     "btnBossD":      ("32 mm",   "Inner-face boss diameter (nut seat)"),
     "btnBossH":      ("3 mm",    "Boss height"),
     "btnAccess":     ("40 mm",   "Clear space behind boss for nut access"),

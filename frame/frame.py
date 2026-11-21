@@ -10,10 +10,17 @@ What it builds (16 bodies): 12 rail pieces, 4 corners.
     on the two mid seams of each side rail - bed limit) into 3 holes,
     plus a 2 mm lip all round the pole piece's end that slides over a
     step on the hole piece. No mending plates.
-  * EVERY seam is also screwed from the back, so the frame can be
-    assembled with screws alone and glued later (or never): 4x M3x12
-    into the two rear poles and 1x M3x45 through the rail into the front
-    pole. 16 seams -> 64x M3x12 + 16x M3x45.
+  * EVERY seam is screwed from the back, so the frame can be built with
+    no glue: 4x M3x12 into the two rear poles and 1x M3x45 through the
+    rail into the front pole. 16 seams -> 64x M3x12 + 16x M3x45.
+  * The screws go into M3 HEAT-SET INSERTS pressed into the poles before
+    assembly (5 per seam, 80 in total): four into the underside of the
+    two rear poles, one into the underside of the front pole. Each seat
+    is a straight 4.0 mm hole, 6.7 mm deep (for the common M3 x 5.7 mm
+    insert - check INSERT_HOLE_D against your pack), so the insert's
+    narrow leading end drops in and holds it upright before heating.
+    A 0.3 mm deep, 7 mm wide dish at the mouth takes the melted rim.
+    PEG_INSERTS = False gives plain 2.8 mm self-tap holes instead.
   * The two bottom-corner <-> side-rail seams are the service seams:
     never glue them (the bottom section comes off to release the glass).
     No inner lip there (the monitor-beam slot sits next to the seam).
@@ -41,7 +48,7 @@ History of earlier versions: see git log and the archive folder.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "2026-11-21.6"
+__VERSION__ = "2026-11-21.7"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
@@ -56,6 +63,11 @@ LIP_CLR, LIP_END = 0.015, 0.02  # 0.15 mm behind the side lips, 0.2 mm at the ti
 LIP_CLR_Z = 0.025             # 0.25 mm under the front lip / over the back lip
 LOCK_AT = (0.4, 0.775)        # rear-pole screws: fraction of the pole length from the seam
 LOCK_FRONT = 0.6              # front-pole (long) screw: fraction of the pole length
+PEG_INSERTS   = True          # True: M3 heat-set insert seats in the poles. False: 2.8 mm self-tap holes
+INSERT_HOLE_D = 0.40          # hole for the insert (cm) - from the insert maker's chart
+INSERT_DEPTH  = 0.67          # hole depth: insert length 5.7 mm + 1 mm
+INSERT_RELIEF = 0.03          # depth of the shallow dish at the mouth (room for the melted rim)
+INSERT_DISH_D = 0.70          # dish diameter; shallow enough that the insert's lead-in still reaches the 4.0 hole
 # pole layouts: (r0, r1, z0, z1); r = distance from the rail's INNER face
 LAY_W = ((0.6, 2.0, 0.9, 2.5), (4.0, 5.4, 0.9, 2.5), (2.3, 3.7, 3.6, 5.2))
 LAY_N = ((1.7, 3.1, 0.9, 2.5), (4.1, 5.5, 0.9, 2.5), (2.9, 4.3, 3.6, 5.2))
@@ -337,6 +349,21 @@ def run(context):
         seams_y(+1, "rail_right", "corner_BR", "corner_TR")
         seams_y(-1, "rail_left", "corner_BL", "corner_TL")
 
+        def peg_thread(carrier, axis, sign, al, rc, z0, z1, tip_z, label):
+            """Hole in a pole for one screw: heat-set insert seat (entered
+            from the pole's rear face) or a plain self-tap pilot."""
+            if PEG_INSERTS:
+                b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01,
+                                    z0 + INSERT_DEPTH, INSERT_HOLE_D), label)
+                b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01,
+                                    z0 + INSERT_RELIEF, INSERT_DISH_D),
+                      "insert mouth relief")
+                b.cut(carrier, rcyl(axis, sign, al, rc, z0 + INSERT_DEPTH - 0.01,
+                                    tip_z, 0.32), "screw tip clearance")
+            else:
+                b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01,
+                                    z1 + 0.01, 0.28), label)
+
         def lock_screws(carrier, receiver, axis, sign, a, d, lay, L):
             """Screws from the rear face of the hole piece into the poles:
             M3x12 x2 into each of the two rear poles, M3x45 x1 through
@@ -349,9 +376,8 @@ def run(context):
                       "lock screw head pocket")
                 b.cut(receiver, rcyl(axis, sign, al, rc, 0.45, z0, 0.34),
                       "lock screw clearance hole")
-                b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01,
-                                    z1 + 0.01, 0.28),
-                      "lock screw pilot in pole")
+                peg_thread(carrier, axis, sign, al, rc, z0, z1, 2.1,
+                           "lock screw pilot in pole")
             r0, r1, z0, z1 = lay[2]
             rc, al = (r0 + r1)/2, a + d*LOCK_FRONT*L
             b.cut(receiver, rbox(axis, sign, al - 0.325, al + 0.325,
@@ -359,8 +385,8 @@ def run(context):
                   "long screw head pocket")
             b.cut(receiver, rcyl(axis, sign, al, rc, 0.45, z0, 0.34),
                   "long screw clearance hole")
-            b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01, z1 + 0.01, 0.28),
-                  "long screw pilot in front pole")
+            peg_thread(carrier, axis, sign, al, rc, z0, z1, 5.0,
+                       "long screw pilot in front pole")
 
         for axis, sign, a, lo, hi, d, lay, L, lock in SEAMS:
             carrier = PCS[lo] if d > 0 else PCS[hi]
@@ -578,7 +604,8 @@ def run(context):
             " - corners: rounded channel bend, NO square notch\n"
             " - every seam: 3 poles + a 2 mm lip ALL ROUND on one piece,\n"
             "   3 holes + a step all round on the other\n"
-            " - every seam, on the back: 5 screw pockets (4 short, 1 long)\n"
+            " - every seam, on the back: 5 screw pockets (4 short, 1 long);\n"
+            "   on the poles: 5 insert holes (4 underneath, 1 on the front pole)\n"
             " - bottom rail back face: solid, except the mains groove\n"
             " - bottom rail top face: button opening (middle piece),\n"
             "   radar chamber (45x22 mm opening), 4 beam foot sockets\n"
