@@ -3,16 +3,20 @@
 Run order, in a NEW EMPTY design every time:  setup_parameters -> frame.
 (frame_test_pair builds only a two-piece test section, from this same file:
 the bottom rail around the button and radar, with one real joint and one
-extra cleat bolt point and two lock screws added so they can be tried too.)
+extra cleat bolt point added so it can be tried too.)
 
 What it builds (16 bodies): 12 rail pieces, 4 corners.
   * Joints: every seam has 3 square poles (14 x 16 mm, 40 mm deep; 31 mm
     on the two mid seams of each side rail - bed limit) into 3 holes,
     plus a 2 mm lip all round the pole piece's end that slides over a
     step on the hole piece. No mending plates.
-  * Service seams (bottom corner <-> side rail) are left unglued:
-    4x M3x12 lock screws each, from the back into the poles. No inner
-    lip there (the monitor-beam slot sits next to the seam).
+  * EVERY seam is also screwed from the back, so the frame can be
+    assembled with screws alone and glued later (or never): 4x M3x12
+    into the two rear poles and 1x M3x45 through the rail into the front
+    pole. 16 seams -> 64x M3x12 + 16x M3x45.
+  * The two bottom-corner <-> side-rail seams are the service seams:
+    never glue them (the bottom section comes off to release the glass).
+    No inner lip there (the monitor-beam slot sits next to the seam).
   * Corners: glass slot + rounded LED channel bend (18 mm channel).
   * Bottom rail: closed at the back. Button pocket and radar chamber
     open through the top (cavity) face. LED wires drop through two wire
@@ -37,7 +41,7 @@ History of earlier versions: see git log and the archive folder.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "2026-11-21.5"
+__VERSION__ = "2026-11-21.6"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
@@ -50,7 +54,8 @@ TIP_LEN, TIP_IN = 0.4, 0.05   # lead-in: last 4 mm of a pole is 0.5 mm slimmer/s
 LIP_LEN, LIP_T = 0.5, 0.2     # ring lip: 5 mm past the seam, 2 mm thick
 LIP_CLR, LIP_END = 0.015, 0.02  # 0.15 mm behind the side lips, 0.2 mm at the tip
 LIP_CLR_Z = 0.025             # 0.25 mm under the front lip / over the back lip
-LOCK_AT = (1.6, 3.1)          # lock screws: distance from the seam (cm)
+LOCK_AT = (0.4, 0.775)        # rear-pole screws: fraction of the pole length from the seam
+LOCK_FRONT = 0.6              # front-pole (long) screw: fraction of the pole length
 # pole layouts: (r0, r1, z0, z1); r = distance from the rail's INNER face
 LAY_W = ((0.6, 2.0, 0.9, 2.5), (4.0, 5.4, 0.9, 2.5), (2.3, 3.7, 3.6, 5.2))
 LAY_N = ((1.7, 3.1, 0.9, 2.5), (4.1, 5.5, 0.9, 2.5), (2.9, 4.3, 3.6, 5.2))
@@ -332,12 +337,13 @@ def run(context):
         seams_y(+1, "rail_right", "corner_BR", "corner_TR")
         seams_y(-1, "rail_left", "corner_BL", "corner_TL")
 
-        def lock_screws(carrier, receiver, axis, sign, a, d, lay, dists):
-            """M3x12 from the rear through the hole piece's wall into the
-            two rear poles = removable shear pins."""
-            for (r0, r1, z0, z1), la in [(q, t) for q in lay[:2]
-                                         for t in dists]:
-                rc, al = (r0 + r1)/2, a + d*la
+        def lock_screws(carrier, receiver, axis, sign, a, d, lay, L):
+            """Screws from the rear face of the hole piece into the poles:
+            M3x12 x2 into each of the two rear poles, M3x45 x1 through
+            the rail into the front pole. Removable shear pins."""
+            for (r0, r1, z0, z1), fr in [(q, t) for q in lay[:2]
+                                         for t in LOCK_AT]:
+                rc, al = (r0 + r1)/2, a + d*fr*L
                 b.cut(receiver, rbox(axis, sign, al - 0.325, al + 0.325,
                                      rc - 0.325, rc + 0.325, -0.01, 0.5),
                       "lock screw head pocket")
@@ -346,6 +352,15 @@ def run(context):
                 b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01,
                                     z1 + 0.01, 0.28),
                       "lock screw pilot in pole")
+            r0, r1, z0, z1 = lay[2]
+            rc, al = (r0 + r1)/2, a + d*LOCK_FRONT*L
+            b.cut(receiver, rbox(axis, sign, al - 0.325, al + 0.325,
+                                 rc - 0.325, rc + 0.325, -0.01, 0.5),
+                  "long screw head pocket")
+            b.cut(receiver, rcyl(axis, sign, al, rc, 0.45, z0, 0.34),
+                  "long screw clearance hole")
+            b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01, z1 + 0.01, 0.28),
+                  "long screw pilot in front pole")
 
         for axis, sign, a, lo, hi, d, lay, L, lock in SEAMS:
             carrier = PCS[lo] if d > 0 else PCS[hi]
@@ -405,9 +420,8 @@ def run(context):
                 b.cut(receiver, rbox(axis, sign, s0, s1, -0.01,
                                      LIP_T + LIP_CLR, -0.01, fD + 0.01),
                       f"step for inner lip @ {axis}={a*10:.0f}")
-            if lock:
-                # SERVICE SEAM (bottom corner <-> side rail): left unglued.
-                lock_screws(carrier, receiver, axis, sign, a, d, lay, LOCK_AT)
+            # screws on every seam (lock = service seam: only changes the lip)
+            lock_screws(carrier, receiver, axis, sign, a, d, lay, L)
 
         # =============== BOTTOM RAIL SERVICES ===============
         bmid = PCS["rail_bottom_p2"]
@@ -514,11 +528,10 @@ def run(context):
             #               one beam foot socket, rear-panel pilot, 3 poles + lip
             #   hole piece: 3 holes + step, radar chamber, mains groove,
             #               blackout pilot, rear-panel pilot
-            # Added for the test only (they live elsewhere on the real
-            # frame): one cleat M4 hole + nut slot, two lock screws.
+            # The seam carries its real screws (4x M3x12 + 1x M3x45).
+            # Added for the test only (it lives on the top rail of the
+            # real frame): one cleat M4 hole + nut slot.
             ta, tb = PCS["rail_bottom_p2"], PCS["rail_bottom_p3"]
-            seam = cutsX[2]
-            lock_screws(ta, tb, 'x', -1, seam, +1, LAY_N, (3.1,))
             tx, ty = 13.0, -(oH/2 - fW/2)
             b.cut(tb, b.cyl_z(tx, ty, -0.01, 1.4, 0.45), "test cleat M4 hole")
             b.cut(tb, b.box(tx - 0.38, ty + 0.45, 0.8,
@@ -564,7 +577,8 @@ def run(context):
             "Look for, before exporting:\n"
             " - corners: rounded channel bend, NO square notch\n"
             " - every seam: 3 poles + a 2 mm lip ALL ROUND on one piece,\n"
-            "   3 holes + a step all round on the other. No plate recesses\n"
+            "   3 holes + a step all round on the other\n"
+            " - every seam, on the back: 5 screw pockets (4 short, 1 long)\n"
             " - bottom rail back face: solid, except the mains groove\n"
             " - bottom rail top face: button opening (middle piece),\n"
             "   radar chamber (45x22 mm opening), 4 beam foot sockets\n"

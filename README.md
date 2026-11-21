@@ -47,9 +47,12 @@ folders side by side.
 
 ## Assembly notes
 
-- Slow-cure epoxy on every seam except the two bottom-corner-to-side-rail
-  seams. Those stay unglued (4x M3x12 lock screws each) so the bottom
-  section comes off and the glass can drop out.
+- Every seam is screwed from the back: 4x M3x12 into the two rear poles
+  and 1x M3x45 through the rail into the front pole (64 + 16 in total).
+- Assemble with screws only first and hang it. Glue (slow-cure epoxy)
+  only the seams that need it.
+- Never glue the two bottom-corner-to-side-rail seams: the bottom section
+  comes off there so the glass can drop out.
 - Not yet proven in plastic: pole/lip fit, joint stiffness under load,
   and whether the radar works through the 4 mm carbon-fibre front wall.
 
