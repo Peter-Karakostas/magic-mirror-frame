@@ -1,7 +1,9 @@
 """Magic Mirror - frame: all frame pieces, assembled in place.
 
 Run order, in a NEW EMPTY design every time:  setup_parameters -> frame.
-(frame_test_pair builds only one short joint pair, from this same file.)
+(frame_test_pair builds only a two-piece test section, from this same file:
+the bottom rail around the button and radar, with one real joint and one
+extra cleat bolt point and two lock screws added so they can be tried too.)
 
 What it builds (16 bodies): 12 rail pieces, 4 corners.
   * Joints: every seam has 3 square poles (14 x 16 mm, 40 mm deep; 31 mm
@@ -35,7 +37,7 @@ History of earlier versions: see git log and the archive folder.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "2026-11-21.4"
+__VERSION__ = "2026-11-21.5"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
@@ -330,6 +332,21 @@ def run(context):
         seams_y(+1, "rail_right", "corner_BR", "corner_TR")
         seams_y(-1, "rail_left", "corner_BL", "corner_TL")
 
+        def lock_screws(carrier, receiver, axis, sign, a, d, lay, dists):
+            """M3x12 from the rear through the hole piece's wall into the
+            two rear poles = removable shear pins."""
+            for (r0, r1, z0, z1), la in [(q, t) for q in lay[:2]
+                                         for t in dists]:
+                rc, al = (r0 + r1)/2, a + d*la
+                b.cut(receiver, rbox(axis, sign, al - 0.325, al + 0.325,
+                                     rc - 0.325, rc + 0.325, -0.01, 0.5),
+                      "lock screw head pocket")
+                b.cut(receiver, rcyl(axis, sign, al, rc, 0.45, z0, 0.34),
+                      "lock screw clearance hole")
+                b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01,
+                                    z1 + 0.01, 0.28),
+                      "lock screw pilot in pole")
+
         for axis, sign, a, lo, hi, d, lay, L, lock in SEAMS:
             carrier = PCS[lo] if d > 0 else PCS[hi]
             receiver = PCS[hi] if d > 0 else PCS[lo]
@@ -390,19 +407,7 @@ def run(context):
                       f"step for inner lip @ {axis}={a*10:.0f}")
             if lock:
                 # SERVICE SEAM (bottom corner <-> side rail): left unglued.
-                # M3x12 from the rear through the rail wall into the two
-                # rear poles = removable shear pins.
-                for (r0, r1, z0, z1), la in [(q, t) for q in lay[:2]
-                                             for t in LOCK_AT]:
-                    rc, al = (r0 + r1)/2, a + d*la
-                    b.cut(receiver, rbox(axis, sign, al - 0.325, al + 0.325,
-                                         rc - 0.325, rc + 0.325, -0.01, 0.5),
-                          "lock screw head pocket")
-                    b.cut(receiver, rcyl(axis, sign, al, rc, 0.45, z0, 0.34),
-                          "lock screw clearance hole")
-                    b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01,
-                                        z1 + 0.01, 0.28),
-                          "lock screw pilot in pole")
+                lock_screws(carrier, receiver, axis, sign, a, d, lay, LOCK_AT)
 
         # =============== BOTTOM RAIL SERVICES ===============
         bmid = PCS["rail_bottom_p2"]
@@ -503,10 +508,25 @@ def run(context):
         # =============== TEST MODE: keep one short joint pair ===============
         keep = set(PCS.keys())
         if MODE == "TEST":
-            ta, tb = PCS["rail_top_p2"], PCS["rail_top_p3"]
-            b.cut(ta, b.box(-13.0, iH/2 - 1, -1, 2.5, oH/2 + 1, fD + 1),
+            # Test section = bottom rail from just left of the button to
+            # just right of the mains groove, split at its real seam.
+            #   pole piece: button recess + hole + pocket + wire slots,
+            #               one beam foot socket, rear-panel pilot, 3 poles + lip
+            #   hole piece: 3 holes + step, radar chamber, mains groove,
+            #               blackout pilot, rear-panel pilot
+            # Added for the test only (they live elsewhere on the real
+            # frame): one cleat M4 hole + nut slot, two lock screws.
+            ta, tb = PCS["rail_bottom_p2"], PCS["rail_bottom_p3"]
+            seam = cutsX[2]
+            lock_screws(ta, tb, 'x', -1, seam, +1, LAY_N, (3.1,))
+            tx, ty = 13.0, -(oH/2 - fW/2)
+            b.cut(tb, b.cyl_z(tx, ty, -0.01, 1.4, 0.45), "test cleat M4 hole")
+            b.cut(tb, b.box(tx - 0.38, ty + 0.45, 0.8,
+                            tx + 0.38, -(oH/2 + 0.01), 1.15),
+                  "test cleat nut slot")
+            b.cut(ta, b.box(-13.0, -(oH/2 + 1), -1, -3.2, -(iH/2 - 1), fD + 1),
                   "test trim")
-            b.cut(tb, b.box(13.5, iH/2 - 1, -1, 24.0, oH/2 + 1, fD + 1),
+            b.cut(tb, b.box(17.2, -(oH/2 + 1), -1, 24.0, -(iH/2 - 1), fD + 1),
                   "test trim")
             ta.name = "TEST_pole_piece"; tb.name = "TEST_hole_piece"
             keep = {"TEST_pole_piece", "TEST_hole_piece"}

@@ -15,7 +15,7 @@ Each script lives in a folder of the same name (Fusion requires that).
 |---|---|---|
 | `setup_parameters` | new empty design, FIRST | user parameters (sizes) |
 | `frame` | same design, after setup | 16 frame pieces, assembled in place |
-| `frame_test_pair` | same design, after setup (instead of `frame`) | one short joint pair for a fit test |
+| `frame_test_pair` | same design, after setup (instead of `frame`) | two-piece test section: joint, button, radar chamber, mains groove, bolt and screw points |
 | `supports` | its own new design, or after `frame` to see it in place | monitor rest beam (2 halves) + top strap (2 halves) |
 | `rear_panel` | its own new design | 6 rear panel tiles |
 

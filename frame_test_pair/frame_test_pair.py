@@ -1,6 +1,8 @@
-"""Magic Mirror - frame_test_pair: builds ONLY one short joint pair
-(TEST_pole_piece + TEST_hole_piece) for a fit test before printing the
-frame. It runs ../frame/frame.py in TEST mode, so there is one copy of
+"""Magic Mirror - frame_test_pair: builds ONLY a two-piece test section
+(TEST_pole_piece + TEST_hole_piece) to try every fit before printing the
+frame: the joint (poles + lip), button, wire slots, beam foot socket,
+radar chamber, mains groove, glass slot, LED channel, M3 pilots, one
+cleat bolt point with its nut slot, and two lock screws. It runs ../frame/frame.py in TEST mode, so there is one copy of
 the frame code. Run setup_parameters first, in a new empty design.
 """
 import adsk.core, traceback, os, importlib.util

@@ -9,7 +9,7 @@ PLACEHOLDER values are marked; replace them once measured, then re-run.
 
 import adsk.core, adsk.fusion, traceback
 
-__VERSION__ = "2026-11-21"
+__VERSION__ = "2026-11-21.5"
 
 # name: (expression_mm, comment)
 PARAMS = {
@@ -50,7 +50,7 @@ PARAMS = {
     "cablePassH":    ("9 mm",    "Wire slot height - fits JST pre-fitted (coupon v1: too small)"),
 
     # --- Button: 22mm momentary metal, 3-8V white ring ---
-    "btnHoleD":      ("22.3 mm", "22mm barrel + print clearance - coupon test"),
+    "btnHoleD":      ("20 mm",   "GUESS (no measurement): button dropped through 22.3, so assumed 22 head / 19 body. Check on the test piece"),
     "btnBossD":      ("32 mm",   "Inner-face boss diameter (nut seat)"),
     "btnBossH":      ("3 mm",    "Boss height"),
     "btnAccess":     ("40 mm",   "Clear space behind boss for nut access"),
