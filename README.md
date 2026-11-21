@@ -14,7 +14,7 @@ Each script lives in a folder of the same name (Fusion requires that).
 | Script | Run in | Builds |
 |---|---|---|
 | `setup_parameters` | new empty design, FIRST | user parameters (sizes) |
-| `frame` | same design, after setup | 16 frame pieces + `radar_window_cap`, assembled in place |
+| `frame` | same design, after setup | 16 frame pieces, assembled in place |
 | `frame_test_pair` | same design, after setup (instead of `frame`) | one short joint pair for a fit test |
 | `supports` | its own new design, or after `frame` to see it in place | monitor rest beam (2 halves) + top strap (2 halves) |
 | `rear_panel` | its own new design | 6 rear panel tiles |
@@ -42,7 +42,6 @@ folders side by side.
 - `rail_bottom_p2`: supports inside the button pocket (not plate-only).
 - Poles: make them solid (100% modifier or 6 walls). Hole ends: 6 walls
   over the first 45 mm.
-- `radar_window_cap`: plain PETG or PLA, NOT carbon fibre.
 - Beam halves: flat on the back face, no supports; rotate 45 degrees if
   the slicer says they do not fit.
 
@@ -52,13 +51,13 @@ folders side by side.
   seams. Those stay unglued (4x M3x12 lock screws each) so the bottom
   section comes off and the glass can drop out.
 - Not yet proven in plastic: pole/lip fit, joint stiffness under load,
-  radar through the window cap, and which face of the radar board is the
-  antenna.
+  and whether the radar works through the 4 mm carbon-fibre front wall.
 
 ## Open items
 
-- Radar: test whether it detects through the mirror glass; if so it can
-  sit on the monitor beam instead of in the frame chamber.
+- Radar: when the new sensor arrives, test it behind the frame's front
+  wall and behind the mirror glass. If the glass works, add a seat for it
+  on the monitor beam; the frame chamber is the fallback.
 - Printed diffusers, corner LED strip holders, blackout fabric clamps.
 
 Everything before this layout (old numbered/versioned scripts, STLs for

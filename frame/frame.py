@@ -3,7 +3,7 @@
 Run order, in a NEW EMPTY design every time:  setup_parameters -> frame.
 (frame_test_pair builds only one short joint pair, from this same file.)
 
-What it builds (17 bodies): 12 rail pieces, 4 corners, radar_window_cap.
+What it builds (16 bodies): 12 rail pieces, 4 corners.
   * Joints: every seam has 3 square poles (14 x 16 mm, 40 mm deep; 31 mm
     on the two mid seams of each side rail - bed limit) into 3 holes,
     plus a 2 mm lip all round the pole piece's end that slides over a
@@ -17,8 +17,10 @@ What it builds (17 bodies): 12 rail pieces, 4 corners, radar_window_cap.
     slots into the button pocket. Mains lead: rounded groove 16 x 8 mm
     across the back, 160 mm right of centre.
   * Radar (35 x 7 mm LD2410 / LD2410B): chamber 45 x 22 mm, 145 mm
-    right of centre; window through the front wall closed by the
-    separate 1.5 mm cap - print radar_window_cap in PLAIN PETG/PLA.
+    right of centre, opening into the cavity, with a tunnel up to the
+    4 mm front wall. The front face is solid. Whether the sensor works
+    through carbon-fibre plastic is untested; the alternative is to
+    mount it on the monitor beam behind the glass.
   * Monitor rest beam seats: 10 mm slots in both side rails + four 8 mm
     foot sockets in the bottom rail, open to the rear (see supports).
   * Top rail: 8 cleat bolt points (M4 + captured nut) on a 1 inch grid:
@@ -33,7 +35,7 @@ History of earlier versions: see git log and the archive folder.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "2026-11-21.3"
+__VERSION__ = "2026-11-21.4"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
@@ -66,9 +68,8 @@ FIT      = 0.05        # clearance per side for the beam parts
 BTN_BACK = 1.0         # solid rear wall behind the button pocket
 RADAR_X  = 14.5
 RADAR_HALF = 2.25      # chamber half-length (45 mm)
-RADAR_TUN  = 1.6       # tunnel/window half-length (32 mm): board ends sit on the ledges
-RADAR_R0, RADAR_R1 = 1.9, 2.65   # tunnel/window across the rail (7.5 mm)
-CAP_T = 0.15           # window cap thickness
+RADAR_TUN  = 1.6       # tunnel half-length (32 mm): board ends sit on the ledges
+RADAR_R0, RADAR_R1 = 1.9, 2.65   # tunnel across the rail (7.5 mm)
 MAINS_X  = 16.0
 # M4 cleat points, mirrored to -x (8 in total). All on a 1 inch grid
 # from the centre (2, 5, 7, 10 in) to match a Z-bar punched every inch.
@@ -422,24 +423,15 @@ def run(context):
                               s*(nutC + passW), cyc + passH/2, z_ch_b + 0.01),
                   "LED wire slot")
 
-        # radar: chamber opening to the cavity (closed at the back),
-        # tunnel up to the front wall, window through the front wall
-        # with a recess for a separate plain-plastic cap.
+        # radar: chamber opening to the cavity (closed at the back) and a
+        # tunnel up to the 4 mm front wall. Front face stays solid.
         bR = piece("rail_bottom", cutsX, RADAR_X)
         b.cut(bR, rbox('x', -1, RADAR_X - RADAR_HALF, RADAR_X + RADAR_HALF,
                        -0.01, RADAR_R1, 3.4, 5.6),
               "radar chamber (opens to cavity)")
         b.cut(bR, rbox('x', -1, RADAR_X - RADAR_TUN, RADAR_X + RADAR_TUN,
-                       RADAR_R0, RADAR_R1, 5.59, z_front + 0.01),
-              "radar tunnel + window")
-        b.cut(bR, rbox('x', -1, RADAR_X - RADAR_TUN - 0.2,
-                       RADAR_X + RADAR_TUN + 0.2, RADAR_R0 - 0.15, RADAR_R1,
-                       z_front - CAP_T, z_front + 0.01),
-              "radar cap recess")
-        cap = rbox('x', -1, RADAR_X - RADAR_TUN - 0.18,
-                   RADAR_X + RADAR_TUN + 0.18, RADAR_R0 - 0.13,
-                   RADAR_R1 - 0.02, z_front - CAP_T, z_front)
-        cap.name = "radar_window_cap"
+                       RADAR_R0, RADAR_R1, 5.59, z_front - wall),
+              "radar tunnel")
 
         # mains lead groove: 16 wide x 8 deep, rounded (4 stepped boxes),
         # rear face, from the cavity edge to the bottom outer edge
@@ -532,8 +524,7 @@ def run(context):
         for body in list(root.bRepBodies):
             if body.name in keep or (MODE != "TEST" and (
                     body.name.startswith("rail_")
-                    or body.name.startswith("corner_")
-                    or body.name == "radar_window_cap")):
+                    or body.name.startswith("corner_"))):
                 kept += 1
             else:
                 try: body.deleteMe()
@@ -557,8 +548,7 @@ def run(context):
             " - bottom rail back face: solid, except the mains groove\n"
             " - bottom rail top face: button opening (middle piece),\n"
             "   radar chamber (45x22 mm opening), 4 beam foot sockets\n"
-            " - bottom rail FRONT face: radar window + separate thin cap\n"
-            "   (print radar_window_cap in plain PETG/PLA, not CF)\n"
+            " - bottom rail FRONT face: solid\n"
             " - side rails, bottom end: beam slot + screw-tab recess\n"
             "Print ONE test pair (frame_test_pair) before the frame.")
     except Exception:
