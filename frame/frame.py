@@ -21,9 +21,10 @@ What it builds (17 bodies): 12 rail pieces, 4 corners, radar_window_cap.
     separate 1.5 mm cap - print radar_window_cap in PLAIN PETG/PLA.
   * Monitor rest beam seats: 10 mm slots in both side rails + four 8 mm
     foot sockets in the bottom rail, open to the rear (see supports).
-  * Top rail: 6 cleat bolt points (M4 + captured nut) for an 18 inch
-    Z-bar punched every inch: x = +-50.8, +-127.0, +-177.8 mm (two per
-    top-rail piece, so the bar ties all three pieces together).
+  * Top rail: 8 cleat bolt points (M4 + captured nut) on a 1 inch grid:
+    x = +-50.8, +-127.0, +-177.8 mm (two per top-rail piece, reached by an
+    18 inch Z-bar) and +-254.0 mm in the two top corner pieces (reached
+    only by a bar 530-600 mm long, which then also ties the corners in).
 
 Every cut/join is volume-checked: the final dialog lists any operation
 that did nothing. If that list is not empty, DO NOT PRINT.
@@ -32,7 +33,7 @@ History of earlier versions: see git log and the archive folder.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "2026-11-21.2"
+__VERSION__ = "2026-11-21.3"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
@@ -69,9 +70,11 @@ RADAR_TUN  = 1.6       # tunnel/window half-length (32 mm): board ends sit on th
 RADAR_R0, RADAR_R1 = 1.9, 2.65   # tunnel/window across the rail (7.5 mm)
 CAP_T = 0.15           # window cap thickness
 MAINS_X  = 16.0
-# M4 cleat points, mirrored to -x (6 in total). All on a 1 inch grid
-# from the centre (2, 5, 7 in) to match a Z-bar punched every inch.
-CLEAT_X  = (5.08, 12.7, 17.78)
+# M4 cleat points, mirrored to -x (8 in total). All on a 1 inch grid
+# from the centre (2, 5, 7, 10 in) to match a Z-bar punched every inch.
+# The 10 in pair is in the top CORNER pieces: only a bar longer than
+# 530 mm reaches it (an 18 in bar uses the inner six).
+CLEAT_X  = (5.08, 12.7, 17.78, 25.4)
 HPIL     = 0.26        # horizontal M3 pilot (square, box cut)
 
 
@@ -496,7 +499,10 @@ def run(context):
         for s in (-1, 1):
             for cx in CLEAT_X:
                 hx = s*cx
-                body = piece("rail_top", cutsX, hx)
+                if cx > limX:      # beyond the rail: top corner piece
+                    body = PCS["corner_TR" if s > 0 else "corner_TL"]
+                else:
+                    body = piece("rail_top", cutsX, hx)
                 b.cut(body, b.cyl_z(hx, hy, -0.01, 1.4, 0.45), "cleat M4 hole")
                 b.cut(body, b.box(hx - 0.38, hy - 0.45, 0.8,
                                   hx + 0.38, oH/2 + 0.01, 1.15),
