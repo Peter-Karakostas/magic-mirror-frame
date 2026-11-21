@@ -21,7 +21,9 @@ What it builds (17 bodies): 12 rail pieces, 4 corners, radar_window_cap.
     separate 1.5 mm cap - print radar_window_cap in PLAIN PETG/PLA.
   * Monitor rest beam seats: 10 mm slots in both side rails + four 8 mm
     foot sockets in the bottom rail, open to the rear (see supports).
-  * Top rail: 4 cleat bolt points (M4 + captured nut), x = +-42, +-130.
+  * Top rail: 6 cleat bolt points (M4 + captured nut) for an 18 inch
+    Z-bar punched every inch: x = +-50.8, +-127.0, +-177.8 mm (two per
+    top-rail piece, so the bar ties all three pieces together).
 
 Every cut/join is volume-checked: the final dialog lists any operation
 that did nothing. If that list is not empty, DO NOT PRINT.
@@ -30,7 +32,7 @@ History of earlier versions: see git log and the archive folder.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "2026-11-21"
+__VERSION__ = "2026-11-21.2"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
@@ -67,7 +69,9 @@ RADAR_TUN  = 1.6       # tunnel/window half-length (32 mm): board ends sit on th
 RADAR_R0, RADAR_R1 = 1.9, 2.65   # tunnel/window across the rail (7.5 mm)
 CAP_T = 0.15           # window cap thickness
 MAINS_X  = 16.0
-CLEAT_X  = (4.2, 13.0) # M4 cleat points, mirrored to -x (4 in total)
+# M4 cleat points, mirrored to -x (6 in total). All on a 1 inch grid
+# from the centre (2, 5, 7 in) to match a Z-bar punched every inch.
+CLEAT_X  = (5.08, 12.7, 17.78)
 HPIL     = 0.26        # horizontal M3 pilot (square, box cut)
 
 
