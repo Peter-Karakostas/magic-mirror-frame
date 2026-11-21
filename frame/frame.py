@@ -1,27 +1,65 @@
-"""Magic Mirror - Step 5 v2: engineering frame with INTEGRAL finger joints.
+"""Magic Mirror - Step 5 (v31): frame with PLUG-IN POLE JOINTS.
 
-Every piece is built with its comb teeth already on it: at each seam,
-even depth-bands extend 12mm past the seam on one piece and are recessed
-12mm on its neighbour (5 bands of 16mm through the 80mm depth). Printed
-pieces mesh like combs - nothing to do in Fusion, no add-in needed.
+Run order, in a FRESH empty design every time:  01_setup_v31  ->  this.
 
-Builds: split rails + 4 rounded corners (all with teeth), glass slot,
-LED channel + diffuser lips, in-channel button (recess/hole/pocket/wire
-slots), radar slide-in pocket, cleat M4 holes + nut seats.
-Still TODO in later revs: mains-exit semicircles at a chosen seam,
-vents, fillets, corner connector pockets (await measured kit).
+What changed against v30 (the frame that was printed):
+  1. Corner "relief squares" REMOVED (channel bend is the plain rounded
+     sweep only).
+  2. Bottom rail pockets are CLOSED at the back. Button pocket and radar
+     chamber open only through the inner (cavity-facing, upward) face of
+     the bottom rail. LED strip wires drop through the two wire slots
+     into the button pocket and leave through the same opening.
+     Mains lead: rounded groove 16 x 8 mm across the back of the bottom
+     rail at x = +160 mm (box cuts only - no sketch-plane extrudes).
+  3. Finger teeth REMOVED. Every seam has 3 square poles on one piece
+     and 3 matching holes in its neighbour (14 x 16 mm section, 40 mm
+     deep; 31 mm on the two mid seams of each side rail - bed limit).
+  4. Monitor rest beam seats: 10 mm deep slots in both side rails plus
+     four 8 mm deep foot sockets in the bottom rail, all open to the
+     rear so the beam drops in from behind (script 07_supports_v36).
 
-VERIFY: Inspect > Measure per docstring checklist of v1, plus:
-[ ] teeth mesh: slide two neighbouring pieces together in Fusion (Move)
-[ ] radar pocket: 38x12mm, floor leaves 4mm front wall
-[ ] button recess clears glass slot band by ~1.5mm
+Also: LED channel is 18 mm wide (setup v31). Inner mending plates are
+gone (poles replace them); rear mending-plate recesses stay.
+Every cut/join is volume-checked: the final dialog lists any operation
+that did nothing. If that list is not empty, DO NOT PRINT.
+
+All holes are explicit box cuts or vertical cylinders drawn on the XY
+plane. Nothing in this file uses an XZ/YZ sketch plane.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "v30-PROD-2026-08-20"
+__VERSION__ = "v31-POLES-2026-11-21"
+MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
-FINGER = 1.2   # cm tooth length
-NBANDS = 5     # depth bands (even bands protrude)
+# ---------------- joint constants (cm) ----------------
+POLE_LEN      = 4.0    # corner seams + top/bottom rail seams
+POLE_LEN_SIDE = 3.1    # the two mid seams of each side rail (bed limit)
+POLE_CLR      = 0.03   # glue/fit clearance per side
+POLE_ROOF     = 0.02   # extra on the hole roof (bridged layers sag)
+SOCK_EXTRA    = 0.10   # hole is this much deeper than the pole
+TIP_LEN, TIP_IN = 0.4, 0.05   # lead-in: last 4 mm of a pole is 0.5 mm slimmer/side
+# pole layouts: (r0, r1, z0, z1); r = distance from the rail's INNER face
+LAY_W = ((0.6, 2.0, 0.9, 2.5), (4.0, 5.4, 0.9, 2.5), (2.3, 3.7, 3.6, 5.2))
+LAY_N = ((1.7, 3.1, 0.9, 2.5), (4.1, 5.5, 0.9, 2.5), (2.9, 4.3, 3.6, 5.2))
+SIDE_MID = 24.6        # length of the middle side-rail piece
+
+# ---------------- monitor rest-beam seats (cm) ----------------
+BEAM_Y0, BEAM_Y1 = -33.5, -30.25   # beam bar; top = monitor bottom edge
+BEAM_Z1  = 5.3
+SLOT_D   = 1.0         # side-rail slot depth
+TAB_Y1, TAB_Z1 = -28.4, 3.0        # screw-tab recess above the slot
+TAB_SCREW_Y = -29.3
+LEG_X    = ((4.0, 7.0), (18.0, 21.5))   # beam feet (mirrored to -x)
+LEG_D    = 0.8         # foot socket depth into the bottom rail
+FIT      = 0.05        # clearance per side for the beam parts
+
+# ---------------- bottom-rail services (cm) ----------------
+BTN_BACK = 1.0         # solid rear wall behind the button pocket
+RADAR_X  = 14.0
+MAINS_X  = 16.0
+CLEAT_X  = (4.2, 13.0) # M4 cleat points, mirrored to -x (4 in total)
+HPIL     = 0.26        # horizontal M3 pilot (square, box cut)
+
 
 def p(design, name):
     prm = design.userParameters.itemByName(name)
@@ -29,42 +67,62 @@ def p(design, name):
         raise RuntimeError(f"Missing parameter '{name}' - run 01 first.")
     return prm.value
 
+
 class B:
-    def __init__(self, root): self.root = root
+    """Box/cylinder builder + volume-checked boolean operations."""
+    def __init__(self, root):
+        self.root = root; self.n_ops = 0; self.failed = []
+
     def _ext(self, prof, z0, z1, op):
         ei = self.root.features.extrudeFeatures.createInput(prof, op)
         ei.setTwoSidesExtent(
             adsk.fusion.DistanceExtentDefinition.create(
-                adsk.core.ValueInput.createByReal(max(z0,z1))),
+                adsk.core.ValueInput.createByReal(max(z0, z1))),
             adsk.fusion.DistanceExtentDefinition.create(
-                adsk.core.ValueInput.createByReal(-min(z0,z1))))
+                adsk.core.ValueInput.createByReal(-min(z0, z1))))
         return self.root.features.extrudeFeatures.add(ei)
-    def box(self, x0,y0,z0,x1,y1,z1, name=None):
+
+    def box(self, x0, y0, z0, x1, y1, z1, name=None):
         sk = self.root.sketches.add(self.root.xYConstructionPlane)
         P = adsk.core.Point3D.create
         sk.sketchCurves.sketchLines.addTwoPointRectangle(
-            P(min(x0,x1),min(y0,y1),0), P(max(x0,x1),max(y0,y1),0))
+            P(min(x0, x1), min(y0, y1), 0), P(max(x0, x1), max(y0, y1), 0))
         f = self._ext(sk.profiles.item(0), z0, z1,
             adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
         if name: f.bodies.item(0).name = name
         return f.bodies.item(0)
-    def cyl_z(self, cx,cy,z0,z1,d):
+
+    def cyl_z(self, cx, cy, z0, z1, d):
         sk = self.root.sketches.add(self.root.xYConstructionPlane)
         sk.sketchCurves.sketchCircles.addByCenterRadius(
-            adsk.core.Point3D.create(cx,cy,0), d/2)
+            adsk.core.Point3D.create(cx, cy, 0), d/2)
         return self._ext(sk.profiles.item(0), z0, z1,
             adsk.fusion.FeatureOperations.NewBodyFeatureOperation).bodies.item(0)
-    def join(self, target, tool):
-        t = adsk.core.ObjectCollection.create(); t.add(tool)
-        ci = self.root.features.combineFeatures.createInput(target, t)
-        ci.operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
-        self.root.features.combineFeatures.add(ci)
-    def cut(self, target, tool, keep=False):
-        t = adsk.core.ObjectCollection.create(); t.add(tool)
-        ci = self.root.features.combineFeatures.createInput(target, t)
-        ci.operation = adsk.fusion.FeatureOperations.CutFeatureOperation
-        ci.isKeepToolBodies = keep
-        self.root.features.combineFeatures.add(ci)
+
+    def _combine(self, target, tool, op, label, grow):
+        self.n_ops += 1
+        tname = target.name
+        try:
+            v0 = target.volume
+            t = adsk.core.ObjectCollection.create(); t.add(tool)
+            ci = self.root.features.combineFeatures.createInput(target, t)
+            ci.operation = op
+            self.root.features.combineFeatures.add(ci)
+            v1 = target.volume
+            ok = (v1 > v0 + 1e-6) if grow else (v1 < v0 - 1e-6)
+            if not ok:
+                self.failed.append(f"{label} on {tname}: no change")
+        except Exception as e:
+            self.failed.append(f"{label} on {tname}: ERROR {str(e)[:60]}")
+
+    def join(self, target, tool, label="join"):
+        self._combine(target, tool,
+            adsk.fusion.FeatureOperations.JoinFeatureOperation, label, True)
+
+    def cut(self, target, tool, label="cut"):
+        self._combine(target, tool,
+            adsk.fusion.FeatureOperations.CutFeatureOperation, label, False)
+
 
 def run(context):
     ui = None
@@ -74,505 +132,333 @@ def run(context):
         if not design: ui.messageBox("Open a design first."); return
         root = design.rootComponent; b = B(root)
 
-        gW,gH,gT = p(design,"glassW"),p(design,"glassH"),p(design,"glassT")
-        clr  = p(design,"glassClear"); fW = p(design,"frameWidth")
-        fD   = p(design,"frameDepth"); wall = p(design,"wallT")
-        R    = p(design,"cornerR");    grv  = p(design,"grooveDepth")
-        chW  = p(design,"ledChW");     chD  = p(design,"ledChD")
-        lsw  = p(design,"ledSlotWall"); lip = p(design,"diffLip")
-        tap  = p(design,"ledChTaper"); stepH = p(design,"ledChStepH")
-        mainsD = p(design,"mainsHoleD")
-        rebD = p(design,"rebateD"); rebW = p(design,"rebateW")
-        btnD = p(design,"btnHoleD");   recD = p(design,"btnRecessD")
-        pockW= p(design,"btnPockW"); nutC = p(design,"btnNutClear")
-        passW= p(design,"cablePassW"); passH = p(design,"cablePassH")
-        rbL  = p(design,"radarBoardL"); rso = p(design,"radarStandoff")
-        bed  = p(design,"bedMax"); jc = p(design,"jointClear")
-        cArm = p(design,"cornerArm")
-        dgD  = p(design,"diffGrooveD"); dgH = p(design,"diffGrooveH")
-        spD  = p(design,"supPilotD")
-        monW_ = p(design,"monW")             # portrait height = chassis W
+        # ---- read EVERY parameter first (parametric mode only) ----
+        gW, gH, gT = p(design, "glassW"), p(design, "glassH"), p(design, "glassT")
+        clr  = p(design, "glassClear"); fW = p(design, "frameWidth")
+        fD   = p(design, "frameDepth"); wall = p(design, "wallT")
+        R    = p(design, "cornerR");    grv  = p(design, "grooveDepth")
+        chW  = p(design, "ledChW");     chD  = p(design, "ledChD")
+        lsw  = p(design, "ledSlotWall")
+        rebD = p(design, "rebateD");    rebW = p(design, "rebateW")
+        btnD = p(design, "btnHoleD");   recD = p(design, "btnRecessD")
+        pockW = p(design, "btnPockW");  nutC = p(design, "btnNutClear")
+        passW = p(design, "cablePassW"); passH = p(design, "cablePassH")
+        rbL  = p(design, "radarBoardL")
+        cArm = p(design, "cornerArm")
+        dgD  = p(design, "diffGrooveD"); dgH = p(design, "diffGrooveH")
+        spD  = p(design, "supPilotD")
+        gEng = p(design, "glassEng")
 
+        if abs(chW - 1.8) > 1e-6:
+            ui.messageBox(
+                f"STOP [{__VERSION__}]: ledChW is {chW*10:.1f} mm, expected 18.0.\n"
+                "Run 01_setup_v31 in a fresh design first, then this script.")
+            return
 
-        gEng = p(design,"glassEng")
-        iW,iH = gW - 2*gEng, gH - 2*gEng   # glass OVERLAPS the slots (v19 fix: was inverted -> glass fell through)
-        # ALL parameter reads complete -> switch to direct modeling
-        # (userParameters are parametric-only; v21 crashed by switching first)
+        # ---- all reads done -> direct modeling ----
         design.designType = adsk.fusion.DesignTypes.DirectDesignType
-        oW,oH = iW+2*fW, iH+2*fW
-        cext  = R + cArm                  # arc + full straight arm
-        z_front, z_ch_b = fD, fD-chD
-        z_slot_f, z_slot_b = fD-wall, fD-wall-(gT+clr)
-        bands = [(fD*i/NBANDS, fD*(i+1)/NBANDS) for i in range(NBANDS)]
 
-        def bnd(seam, band, protrude_left):
-            """Boundary x/y at a seam for a band. Even bands: the LEFT
-            (lower-coord) piece protrudes by FINGER; odd bands flush."""
-            if band % 2 == 0:
-                return seam + (FINGER if protrude_left else FINGER)
-            return seam
-        # simpler rule: even-band boundary = seam + FINGER (left piece
-        # owns the tooth), odd-band boundary = seam. Works for every seam.
+        iW, iH = gW - 2*gEng, gH - 2*gEng        # visible opening
+        oW, oH = iW + 2*fW, iH + 2*fW
+        cext = R + cArm
+        z_front, z_ch_b = fD, fD - chD
+        z_slot_f, z_slot_b = fD - wall, fD - wall - (gT + clr)
+        limX, limY = oW/2 - cext, oH/2 - cext
+        cutsX = [-limX, -limX/3, limX/3, limX]
+        cutsY = [-limY, -SIDE_MID/2, SIDE_MID/2, limY]
+        ch0, ch1 = grv + lsw, grv + lsw + chW     # channel walls (r)
 
-        def banded_prism(a0, a1, seams, ends, cross0, cross1, axis, name):
-            """One rail piece [a0,a1]. Left piece owns even-band teeth
-            at interior seams; corners own teeth at rail ends; odd
-            bands flush. Teeth are shrunk by jointClear in x and z."""
-            body = None
-            lo_end, hi_end = ends
-            def add(x0,y0,z0,x1,y1,z1):
-                nonlocal body
-                pc = b.box(x0,y0,z0,x1,y1,z1) if axis=='x' else \
-                     b.box(y0,x0,z0,y1,x1,z1)
-                if body is None:
-                    body = pc; body.name = name
-                else:
-                    b.join(body, pc)
-            for k,(zb0,zb1) in enumerate(bands):
-                lo, hi = a0, a1
-                if k % 2 == 0:
-                    if (a0 in seams) or lo_end: lo = a0 + FINGER
-                    if hi_end: hi = a1 - FINGER
-                add(lo, cross0, zb0, hi, cross1, zb1)
-                # tooth on the right side of interior seams, shrunk
-                if k % 2 == 0 and (a1 in seams):
-                    add(a1, cross0, zb0 + jc, a1 + FINGER - jc,
-                        cross1, zb1 - jc)
-            return body
+        PCS = {}                                   # name -> body
 
-        def rail(axis, sign, name):
-            if axis=='x':
-                lim = oW/2-cext; y_in, y_out = sign*iH/2, sign*oH/2
-                c0, c1 = min(y_in,y_out), max(y_in,y_out)
-            else:
-                lim = oH/2-cext; x_in, x_out = sign*iW/2, sign*oW/2
-                c0, c1 = min(x_in,x_out), max(x_in,x_out)
-            n = max(1, math.ceil(2*lim/bed))
-            if name == "rail_bottom":
-                # 3 pieces, seams at +-lim/3: clear of button (x=0,
-                # pocket +-28mm) and radar (moved to x=120mm)
-                n = max(n, 3)
-            cuts = [-lim + 2*lim*i/n for i in range(n+1)]
-            seams = set(cuts[1:-1])
-            pieces = []
-            seamREG.append((axis, sign, list(cuts)))
-            for i in range(n):
-                body = banded_prism(cuts[i], cuts[i+1], seams,
-                                    (i == 0, i == n-1),
-                                    c0, c1, axis, f"{name}_p{i+1}")
-                # profile cuts (generous spans cover teeth)
-                if axis=='x':
-                    yin = sign*iH/2
-                    b.cut(body, b.box(-lim-3, yin, z_slot_b, lim+3,
-                                      yin+sign*grv, z_slot_f))
-                    cc = yin + sign*(grv+lsw)
-                    b.cut(body, b.box(-lim-3, cc, z_ch_b, lim+3,
-                                      cc+sign*chW, z_front+0.01))
-                    for gw in (cc, cc + sign*chW):
-                        b.cut(body, b.box(-lim-3, gw - sign*dgD, z_front-0.15-dgH,
-                                          lim+3, gw + sign*dgD, z_front-0.15))
-                    b.cut(body, b.box(cuts[i]-0.01, yin, -0.01,
-                                      cuts[i+1]+0.01, yin+sign*rebW, rebD))
-                    # diffuser lips: re-add 1.5mm material at channel top edges
-                else:
-                    xin = sign*iW/2
-                    b.cut(body, b.box(xin, -lim-3, z_slot_b,
-                                      xin+sign*grv, lim+3, z_slot_f))
-                    cc = xin + sign*(grv+lsw)
-                    b.cut(body, b.box(cc, -lim-3, z_ch_b,
-                                      cc+sign*chW, lim+3, z_front+0.01))
-                    for gw in (cc, cc + sign*chW):
-                        b.cut(body, b.box(gw - sign*dgD, -lim-3, z_front-0.15-dgH,
-                                          gw + sign*dgD, lim+3, z_front-0.15))
-                    b.cut(body, b.box(xin, cuts[i]-0.01, -0.01,
-                                      xin+sign*rebW, cuts[i+1]+0.01, rebD))
-                pieces.append(body)
-            return pieces
+        def rbox(axis, sign, a0, a1, r0, r1, z0, z1):
+            """Box in rail coordinates: a = along the rail, r = outward
+            from the rail's inner face."""
+            if axis == 'x':
+                return b.box(a0, sign*(iH/2 + r0), z0, a1, sign*(iH/2 + r1), z1)
+            return b.box(sign*(iW/2 + r0), a0, z0, sign*(iW/2 + r1), a1, z1)
 
-        seamREG = []
-        all_pieces = []
-        all_pieces += rail('x', +1, "rail_top")
-        bot = rail('x', -1, "rail_bottom"); all_pieces += bot
-        all_pieces += rail('y', +1, "rail_right")
-        all_pieces += rail('y', -1, "rail_left")
+        def rcyl(axis, sign, a, r, z0, z1, d):
+            if axis == 'x':
+                return b.cyl_z(a, sign*(iH/2 + r), z0, z1, d)
+            return b.cyl_z(sign*(iW/2 + r), a, z0, z1, d)
 
+        def piece(name, cuts, pos):
+            for i in range(len(cuts) - 1):
+                if cuts[i] < pos < cuts[i+1]:
+                    return PCS[f"{name}_p{i+1}"]
+            raise RuntimeError(f"no piece of {name} at {pos}")
+
+        # =============== RAILS ===============
+        def rail(axis, sign, name, cuts):
+            for i in range(len(cuts) - 1):
+                a0, a1 = cuts[i], cuts[i+1]
+                nm = f"{name}_p{i+1}"
+                body = rbox(axis, sign, a0, a1, 0, fW, 0, fD)
+                body.name = nm
+                e0, e1 = a0 - 0.01, a1 + 0.01
+                b.cut(body, rbox(axis, sign, e0, e1, -0.01, grv,
+                                 z_slot_b, z_slot_f), "glass slot")
+                b.cut(body, rbox(axis, sign, e0, e1, ch0, ch1,
+                                 z_ch_b, z_front + 0.01), "LED channel")
+                for gw in (ch0, ch1):
+                    b.cut(body, rbox(axis, sign, e0, e1, gw - dgD, gw + dgD,
+                                     z_front - 0.15 - dgH, z_front - 0.15),
+                          "diffuser groove")
+                b.cut(body, rbox(axis, sign, e0, e1, -0.01, rebW,
+                                 -0.01, rebD), "rear rebate")
+                PCS[nm] = body
+
+        rail('x', +1, "rail_top", cutsX)
+        rail('x', -1, "rail_bottom", cutsX)
+        rail('y', +1, "rail_right", cutsY)
+        rail('y', -1, "rail_left", cutsY)
+
+        # =============== CORNERS ===============
         def corner(sx, sy, name):
             cx_o, cy_o = sx*oW/2, sy*oH/2
-            cx_s, cy_s = sx*(oW/2-cext), sy*(oH/2-cext)
+            cx_s, cy_s = sx*(oW/2 - cext), sy*(oH/2 - cext)
             cx_i, cy_i = sx*iW/2, sy*iH/2
             acx, acy = cx_o - sx*R, cy_o - sy*R
-            body = None
-            for k,(zb0,zb1) in enumerate(bands):
-                ext = 0.0   # v23: bands flush; teeth added as cleared blocks below
-                sk = root.sketches.add(root.xYConstructionPlane)
-                P = adsk.core.Point3D.create
-                L = sk.sketchCurves.sketchLines
-                A = sk.sketchCurves.sketchArcs
-                exs, eys = cx_s - sx*ext, cy_s - sy*ext  # extended seams
-                L.addByTwoPoints(P(exs, cy_o,0), P(acx, cy_o,0))
-                A.addByCenterStartSweep(P(acx,acy,0), P(acx,cy_o,0),
-                                        -sx*sy*math.pi/2)
-                L.addByTwoPoints(P(cx_o, acy,0), P(cx_o, eys,0))
-                L.addByTwoPoints(P(cx_o, eys,0), P(cx_i, eys,0))
-                L.addByTwoPoints(P(cx_i, eys,0), P(cx_i, cy_i,0))
-                L.addByTwoPoints(P(cx_i, cy_i,0), P(exs, cy_i,0))
-                L.addByTwoPoints(P(exs, cy_i,0), P(exs, cy_o,0))
-                prof = max(sk.profiles, key=lambda q: q.areaProperties().area)
-                f = b._ext(prof, zb0, zb1,
-                    adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-                pc = f.bodies.item(0)
-                if body is None: body = pc; body.name = name
-                else: b.join(body, pc)
-            # v23: corner teeth as separate blocks, cleared by jc on ALL
-            # faces (matches rail teeth; zero-z-clearance made BR need force)
-            for k,(zb0,zb1) in enumerate(bands):
-                if k % 2: continue
-                tx = b.box(cx_s - sx*(FINGER - jc), cy_i, zb0 + jc,
-                           cx_s, sy*oH/2, zb1 - jc)
-                b.join(body, tx)
-                ty = b.box(cx_i, cy_s - sy*(FINGER - jc), zb0 + jc,
-                           sx*oW/2, cy_s, zb1 - jc)
-                b.join(body, ty)
+            sk = root.sketches.add(root.xYConstructionPlane)
+            P = adsk.core.Point3D.create
+            L = sk.sketchCurves.sketchLines
+            A = sk.sketchCurves.sketchArcs
+            L.addByTwoPoints(P(cx_s, cy_o, 0), P(acx, cy_o, 0))
+            A.addByCenterStartSweep(P(acx, acy, 0), P(acx, cy_o, 0),
+                                    -sx*sy*math.pi/2)
+            L.addByTwoPoints(P(cx_o, acy, 0), P(cx_o, cy_s, 0))
+            L.addByTwoPoints(P(cx_o, cy_s, 0), P(cx_i, cy_s, 0))
+            L.addByTwoPoints(P(cx_i, cy_s, 0), P(cx_i, cy_i, 0))
+            L.addByTwoPoints(P(cx_i, cy_i, 0), P(cx_s, cy_i, 0))
+            L.addByTwoPoints(P(cx_s, cy_i, 0), P(cx_s, cy_o, 0))
+            prof = max(sk.profiles, key=lambda q: q.areaProperties().area)
+            body = b._ext(prof, 0, fD,
+                adsk.fusion.FeatureOperations.NewBodyFeatureOperation
+                ).bodies.item(0)
+            body.name = name
 
-            # glass pocket (square) + CONTINUOUS ROUNDED channel bend
-            s1 = b.box(cx_i, cy_s-sy*2, z_slot_b, cx_i+sx*grv,
-                       cy_i+sy*0.01, z_slot_f)
-            s2 = b.box(cx_s-sx*2, cy_i, z_slot_b, cx_i+sx*0.01,
-                       cy_i+sy*grv, z_slot_f)
-            # v28: the corner SQUARE where the two slot legs meet -
-            # was never cut; glass corners jammed against solid block
-            s3 = b.box(cx_i, cy_i, z_slot_b, cx_i+sx*grv,
-                       cy_i+sy*grv, z_slot_f)
-            b.cut(body, s1); b.cut(body, s2); b.cut(body, s3)
-            Px, Py = cx_i + sx*(grv+lsw), cy_i + sy*(grv+lsw)
-            # straight legs up to the bend tangents
-            b.cut(body, b.box(cx_s - sx*2, Py, z_ch_b,
-                              Px + sx*0.01, Py + sy*chW, z_front + 0.01))
-            b.cut(body, b.box(Px, cy_s - sy*2, z_ch_b,
-                              Px + sx*chW, Py + sy*0.01, z_front + 0.01))
+            # glass slot: two legs + the corner square where they meet
+            b.cut(body, b.box(cx_i, cy_s - sy*0.01, z_slot_b,
+                              cx_i + sx*grv, cy_i + sy*0.01, z_slot_f),
+                  "glass slot leg")
+            b.cut(body, b.box(cx_s - sx*0.01, cy_i, z_slot_b,
+                              cx_i + sx*0.01, cy_i + sy*grv, z_slot_f),
+                  "glass slot leg")
+            b.cut(body, b.box(cx_i, cy_i, z_slot_b,
+                              cx_i + sx*grv, cy_i + sy*grv, z_slot_f),
+                  "glass slot corner square")
+            # LED channel: straight legs up to the bend + rounded sweep
+            Px, Py = cx_i + sx*ch0, cy_i + sy*ch0
+            b.cut(body, b.box(cx_s - sx*0.01, Py, z_ch_b,
+                              Px + sx*0.01, Py + sy*chW, z_front + 0.01),
+                  "channel leg")
+            b.cut(body, b.box(Px, cy_s - sy*0.01, z_ch_b,
+                              Px + sx*chW, Py + sy*0.01, z_front + 0.01),
+                  "channel leg")
             for gw in (Py, Py + sy*chW):
-                b.cut(body, b.box(cx_s - sx*2, gw - sy*dgD, z_front-0.15-dgH,
-                                  Px + sx*0.01, gw + sy*dgD, z_front-0.15))
+                b.cut(body, b.box(cx_s - sx*0.01, gw - sy*dgD,
+                                  z_front - 0.15 - dgH,
+                                  Px + sx*0.01, gw + sy*dgD, z_front - 0.15),
+                      "diffuser groove")
             for gw in (Px, Px + sx*chW):
-                b.cut(body, b.box(gw - sx*dgD, cy_s - sy*2, z_front-0.15-dgH,
-                                  gw + sx*dgD, Py + sy*0.01, z_front-0.15))
-            # rounded outer sweep: quarter-pie about (Px,Py), R = chW
+                b.cut(body, b.box(gw - sx*dgD, cy_s - sy*0.01,
+                                  z_front - 0.15 - dgH,
+                                  gw + sx*dgD, Py + sy*0.01, z_front - 0.15),
+                      "diffuser groove")
             skp = root.sketches.add(root.xYConstructionPlane)
-            Pt = adsk.core.Point3D.create
             Lp = skp.sketchCurves.sketchLines
             Ap = skp.sketchCurves.sketchArcs
-            Lp.addByTwoPoints(Pt(Px, Py, 0), Pt(Px + sx*chW, Py, 0))
-            Ap.addByCenterStartSweep(Pt(Px, Py, 0),
-                                     Pt(Px + sx*chW, Py, 0),
+            Lp.addByTwoPoints(P(Px, Py, 0), P(Px + sx*chW, Py, 0))
+            Ap.addByCenterStartSweep(P(Px, Py, 0), P(Px + sx*chW, Py, 0),
                                      sx*sy*math.pi/2)
-            Lp.addByTwoPoints(Pt(Px, Py + sy*chW, 0), Pt(Px, Py, 0))
+            Lp.addByTwoPoints(P(Px, Py + sy*chW, 0), P(Px, Py, 0))
             prof = max(skp.profiles, key=lambda q: q.areaProperties().area)
-            pf = b._ext(prof, z_ch_b, z_front + 0.01,
-                adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-            b.cut(body, pf.bodies.item(0))
-            # inner relief for the bracket's curved sweep (4mm wall to slot)
-            b.cut(body, b.box(cx_i + sx*1.9, cy_i + sy*1.9, z_ch_b,
-                              Px + sx*0.01, Py + sy*0.01, z_front + 0.01))
-            return body
+            pie = b._ext(prof, z_ch_b, z_front + 0.01,
+                adsk.fusion.FeatureOperations.NewBodyFeatureOperation
+                ).bodies.item(0)
+            b.cut(body, pie, "channel rounded bend")
+            # (v31: NO relief square here any more)
 
-        all_pieces.append(corner(+1,+1,"corner_TR"))
-        all_pieces.append(corner(-1,+1,"corner_TL"))
-        all_pieces.append(corner(+1,-1,"corner_BR"))
-        all_pieces.append(corner(-1,-1,"corner_BL"))
+            # rear rebate along both inner edges + its corner square
+            b.cut(body, b.box(cx_s - sx*0.01, cy_i, -0.01,
+                              cx_i + sx*0.01, cy_i + sy*rebW, rebD), "rebate")
+            b.cut(body, b.box(cx_i, cy_s - sy*0.01, -0.01,
+                              cx_i + sx*rebW, cy_i + sy*0.01, rebD), "rebate")
+            b.cut(body, b.box(cx_i, cy_i, -0.01,
+                              cx_i + sx*rebW, cy_i + sy*rebW, rebD),
+                  "rebate corner square")
+            PCS[name] = body
 
-        # --- in-channel button on the bottom-rail piece containing x=0 ---
-        cyc = -(iH/2 + grv + lsw + chW/2)
-        tools = [b.cyl_z(0, cyc, z_ch_b-0.01, z_front+0.01, recD),
-                 b.cyl_z(0, cyc, z_ch_b-wall-0.01, z_ch_b+0.01, btnD),
-                 b.box(-pockW/2, -(oH/2 - wall), -0.01,
-                        pockW/2, -(iH/2 + wall), z_ch_b-wall),
-                 b.box(-nutC-passW, cyc-passH/2, z_ch_b-wall-0.01,
-                       -nutC, cyc+passH/2, z_ch_b+0.01),
-                 b.box(nutC, cyc-passH/2, z_ch_b-wall-0.01,
-                       nutC+passW, cyc+passH/2, z_ch_b+0.01)]
-        for body in bot:
-            bb = body.boundingBox
-            if bb.minPoint.x < -0.5 and bb.maxPoint.x > 0.5:
-                for t in tools: b.cut(body, t)
-                # v24: cable passage pocket -> cavity (was missing;
-                # cables had no modeled path inboard)
-                b.cut(body, b.box(-0.5, -(iH/2 + wall) - 0.05, 0.8,
-                                  0.5, -(iH/2) + 0.05, 1.8))
-                break
+        corner(+1, +1, "corner_TR"); corner(-1, +1, "corner_TL")
+        corner(+1, -1, "corner_BR"); corner(-1, -1, "corner_BL")
 
-        # --- RADAR slide-in pocket: bottom rail, x=+12cm, open to rear,
-        # floor leaves 4mm front wall (beam exits through outer band) ---
-        ry0 = -(oH/2 - 0.2)              # near outer face, inside 2mm skin
-        rp = b.box(13.0 - rbL/2, ry0, -0.01,
-                   13.0 + rbL/2, ry0 + (rso + 0.6), z_front - wall)
-        for body in bot:
-            bb = body.boundingBox
-            if bb.minPoint.x < 13.0 < bb.maxPoint.x:
-                b.cut(body, rp)
-                # v24: rear-face cable groove, pocket -> inner edge
-                b.cut(body, b.box(12.5, -(oH/2 - 0.2), -0.01,
-                                  13.5, -(iH/2) + 0.05, 0.5))
-                # v30: MAINS EXIT GROOVE - rounded half-cylinder,
-                # 16mm wide x 8mm deep (r=8), rear face, inner edge ->
-                # bottom edge at x=160mm. Cylinder centred ON the rear
-                # face plane -> semicircular channel. Rear panel edge
-                # cutout: matching 16mm half-round - script 06 note.
-                skg = root.sketches.add(root.xZConstructionPlane)
-                skg.sketchCurves.sketchCircles.addByCenterRadius(
-                    adsk.core.Point3D.create(16.0, 0.0, 0), 0.8)
-                eg = root.features.extrudeFeatures.createInput(
-                    skg.profiles.item(0),
-                    adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-                eg.setTwoSidesExtent(
-                    adsk.fusion.DistanceExtentDefinition.create(
-                        adsk.core.ValueInput.createByReal(oH/2 + 0.1)),
-                    adsk.fusion.DistanceExtentDefinition.create(
-                        adsk.core.ValueInput.createByReal(oH/2 + 0.1)))
-                gpin = root.features.extrudeFeatures.add(eg).bodies.item(0)
-                b.cut(body, gpin, keep=True)
-                if gpin.isValid: gpin.deleteMe()
-                break
+        # =============== SEAMS: 3 POLES -> 3 HOLES ===============
+        # (axis, sign, position, lower piece, upper piece,
+        #  pole direction, layout, pole length, lock screws?)
+        SEAMS = []
+        def seams_x(sign, name, cl, cr, lay):
+            c = cutsX
+            SEAMS.append(('x', sign, c[0], cl, f"{name}_p1", +1, lay, POLE_LEN, False))
+            SEAMS.append(('x', sign, c[1], f"{name}_p1", f"{name}_p2", -1, lay, POLE_LEN, False))
+            SEAMS.append(('x', sign, c[2], f"{name}_p2", f"{name}_p3", +1, lay, POLE_LEN, False))
+            SEAMS.append(('x', sign, c[3], f"{name}_p3", cr, -1, lay, POLE_LEN, False))
+        def seams_y(sign, name, cb, ct):
+            c = cutsY
+            SEAMS.append(('y', sign, c[0], cb, f"{name}_p1", +1, LAY_N, POLE_LEN, True))
+            SEAMS.append(('y', sign, c[1], f"{name}_p1", f"{name}_p2", +1, LAY_W, POLE_LEN_SIDE, False))
+            SEAMS.append(('y', sign, c[2], f"{name}_p2", f"{name}_p3", -1, LAY_W, POLE_LEN_SIDE, False))
+            SEAMS.append(('y', sign, c[3], f"{name}_p3", ct, -1, LAY_W, POLE_LEN, False))
+        seams_x(+1, "rail_top", "corner_TL", "corner_TR", LAY_W)
+        seams_x(-1, "rail_bottom", "corner_BL", "corner_BR", LAY_N)
+        seams_y(+1, "rail_right", "corner_BR", "corner_TR")
+        seams_y(-1, "rail_left", "corner_BL", "corner_TL")
 
-        # corner rear rebates along their two inner edges
-        for body in list(root.bRepBodies):
-            if body.name.startswith("corner_"):
-                sx = 1 if body.name[-1] == "R" else -1
-                sy = 1 if body.name[-2] == "T" else -1
-                cxi, cyi = sx*iW/2, sy*iH/2
-                cxs, cys = sx*(oW/2-cext), sy*(oH/2-cext)
-                b.cut(body, b.box(cxs-sx*0.1, cyi, -0.01,
-                                  cxi+sx*0.1, cyi+sy*rebW, rebD))
-                b.cut(body, b.box(cxi, cys-sy*0.1, -0.01,
-                                  cxi+sx*rebW, cyi+sy*0.1, rebD))
-                # v28: rebate corner square (same missed-corner class)
-                b.cut(body, b.box(cxi, cyi, -0.01,
-                                  cxi+sx*rebW, cyi+sy*rebW, rebD))
+        for axis, sign, a, lo, hi, d, lay, L, lock in SEAMS:
+            carrier = PCS[lo] if d > 0 else PCS[hi]
+            receiver = PCS[hi] if d > 0 else PCS[lo]
+            for k, (r0, r1, z0, z1) in enumerate(lay):
+                tag = f"pole {k+1} @ {axis}={a*10:.0f}"
+                # pole body (rooted 2 mm inside its own piece)
+                b.join(carrier, rbox(axis, sign, a - d*0.2,
+                                     a + d*(L - TIP_LEN), r0, r1, z0, z1),
+                       tag)
+                # slimmer tip = lead-in
+                b.join(carrier, rbox(axis, sign, a + d*(L - TIP_LEN - 0.05),
+                                     a + d*L, r0 + TIP_IN, r1 - TIP_IN,
+                                     z0 + TIP_IN, z1 - TIP_IN), tag + " tip")
+                # matching hole
+                b.cut(receiver, rbox(axis, sign, a - d*0.01,
+                                     a + d*(L + SOCK_EXTRA),
+                                     r0 - POLE_CLR, r1 + POLE_CLR,
+                                     z0 - POLE_CLR, z1 + POLE_CLR + POLE_ROOF),
+                      "hole for " + tag)
+            # rear mending-plate recess 50x20x3 across the seam + pilots
+            for body in (PCS[lo], PCS[hi]):
+                b.cut(body, rbox(axis, sign, a - 2.5, a + 2.5, 2.5, 4.5,
+                                 -0.01, rebD), f"plate recess @ {axis}={a*10:.0f}")
+            b.cut(PCS[lo], rcyl(axis, sign, a - 2.0, 3.5, -0.01, 0.8, spD),
+                  "plate pilot")
+            b.cut(PCS[hi], rcyl(axis, sign, a + 2.0, 3.5, -0.01, 0.8, spD),
+                  "plate pilot")
+            if lock:
+                # SERVICE SEAM (bottom corner <-> side rail): left unglued.
+                # M3x12 from the rear through the rail wall into the two
+                # rear poles = removable shear pins.
+                for (r0, r1, z0, z1) in lay[:2]:
+                    rc, al = (r0 + r1)/2, a + d*3.1
+                    b.cut(receiver, rbox(axis, sign, al - 0.325, al + 0.325,
+                                         rc - 0.325, rc + 0.325, -0.01, 0.5),
+                          "lock screw head pocket")
+                    b.cut(receiver, rcyl(axis, sign, al, rc, 0.45, z0, 0.34),
+                          "lock screw clearance hole")
+                    b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01,
+                                        z1 + 0.01, 0.28),
+                          "lock screw pilot in pole")
 
-        # --- MONITOR SHELF-BEAM + STRAP pilot holes: horizontal M3
-        # pilots through both vertical rails' inner faces. Beam carries
-        # the monitor's bottom edge (2 pilots/side); strap retains the
-        # top (1 pilot/side). One long thin cylinder per hole cuts both
-        # rails symmetrically; cavity in between is empty space.
-        # (monW_ read in the parametric phase above)
-        yBeam = -monW_/2 - 1.5              # beam body below monitor edge
-        yStrap = monW_/2 + 0.8
-        for hy, hz in ((yBeam, 2.0), (yBeam, 4.5), (yStrap, 3.0)):
-            skp = root.sketches.add(root.yZConstructionPlane)
-            skp.sketchCurves.sketchCircles.addByCenterRadius(
-                adsk.core.Point3D.create(hy, hz, 0), spD/2)
-            exp = root.features.extrudeFeatures.createInput(
-                skp.profiles.item(0),
-                adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-            exp.setTwoSidesExtent(
-                adsk.fusion.DistanceExtentDefinition.create(
-                    adsk.core.ValueInput.createByReal(iW/2 + 1.0)),
-                adsk.fusion.DistanceExtentDefinition.create(
-                    adsk.core.ValueInput.createByReal(iW/2 + 1.0)))
-            pin = root.features.extrudeFeatures.add(exp).bodies.item(0)
-            for body in list(root.bRepBodies):
-                if body == pin: continue
-                if not (body.name.startswith("rail_left")
-                        or body.name.startswith("rail_right")): continue
-                bb = body.boundingBox
-                if bb.minPoint.y < hy < bb.maxPoint.y:
-                    b.cut(body, pin, keep=True)
-            if pin.isValid: pin.deleteMe()
+        # =============== BOTTOM RAIL SERVICES ===============
+        bmid = PCS["rail_bottom_p2"]
+        y_in = -iH/2
+        cyc = -(iH/2 + (ch0 + ch1)/2)                 # channel centreline
+        z_roof = z_ch_b - wall                        # pocket roof
+        b.cut(bmid, b.cyl_z(0, cyc, z_ch_b - 0.01, z_front + 0.01, recD),
+              "button head recess")
+        b.cut(bmid, b.cyl_z(0, cyc, z_roof - 0.01, z_ch_b + 0.01, btnD),
+              "button hole")
+        # pocket: CLOSED at the rear (BTN_BACK solid), open only through
+        # the inner face of the rail (towards the cavity)
+        b.cut(bmid, b.box(-pockW/2, -(oH/2 - wall), BTN_BACK,
+                          pockW/2, y_in + 0.01, z_roof),
+              "button pocket (opens to cavity)")
+        for s in (-1, 1):
+            b.cut(bmid, b.box(s*nutC, cyc - passH/2, z_roof - 0.01,
+                              s*(nutC + passW), cyc + passH/2, z_ch_b + 0.01),
+                  "LED wire slot")
 
-        # --- MENDING-PLATE pilot holes: 2 per seam (one per piece),
-        # rear face, 20mm off the seam, mid-outer band. Enables fully
-        # screw-assembled, epoxy-optional, piece-replaceable frame.
-        for axis, sign, cuts in seamREG:
-            if axis == 'x':
-                cross = sign * (iH/2 + rebW + (fW - rebW)/2)
-            else:
-                cross = sign * (iW/2 + rebW + (fW - rebW)/2)
-            for sm in cuts:                      # all boundaries incl corner seams
-                # flush recess: 50x20x3mm pocket spanning the seam so
-                # the mending plate sits flush with the rear face
-                if axis == 'x':
-                    rec = b.box(sm-2.5, cross-1.0, -0.01, sm+2.5, cross+1.0, rebD)
-                else:
-                    rec = b.box(cross-1.0, sm-2.5, -0.01, cross+1.0, sm+2.5, rebD)
-                rbb = rec.boundingBox
-                for body in list(root.bRepBodies):
-                    if body == rec: continue
-                    if not (body.name.startswith("rail")
-                            or body.name.startswith("corner")): continue
-                    bb = body.boundingBox
-                    if (bb.minPoint.x < rbb.maxPoint.x and
-                        bb.maxPoint.x > rbb.minPoint.x and
-                        bb.minPoint.y < rbb.maxPoint.y and
-                        bb.maxPoint.y > rbb.minPoint.y):
-                        b.cut(body, rec, keep=True)
-                if rec.isValid: rec.deleteMe()
-                for off in (-2.0, 2.0):
-                    pos = sm + off
-                    cx_, cy_ = (pos, cross) if axis == 'x' else (cross, pos)
-                    tool = b.cyl_z(cx_, cy_, -0.01, 0.8, spD)
-                    done = False
-                    for body in list(root.bRepBodies):
-                        if body == tool: continue
-                        if not (body.name.startswith("rail")
-                                or body.name.startswith("corner")): continue
-                        bb = body.boundingBox
-                        if (bb.minPoint.x - 0.05 < cx_ < bb.maxPoint.x + 0.05 and
-                            bb.minPoint.y - 0.05 < cy_ < bb.maxPoint.y + 0.05):
-                            b.cut(body, tool); done = True; break
-                    if not done and tool.isValid:
-                        tool.deleteMe()
+        # radar: entry slot in the inner face + front pocket behind the
+        # 4 mm front wall. Nothing opens to the rear.
+        bR = piece("rail_bottom", cutsX, RADAR_X)
+        rh = rbL/2 + 0.1
+        b.cut(bR, rbox('x', -1, RADAR_X - rh, RADAR_X + rh, -0.01, 2.6,
+                       4.6, 5.6), "radar entry slot (opens to cavity)")
+        b.cut(bR, rbox('x', -1, RADAR_X - rh, RADAR_X + rh, 1.7, 2.6,
+                       5.59, z_front - wall), "radar front pocket")
 
-        # --- BLACKOUT PANEL mounting pilots: 10x M3 into the frame's
-        # inner faces at the blackout plane (z=52mm), clear of channel
-        # (z>=56), glass slot (z>=59), button pocket and camera zone.
-        zB = 5.2
-        # side rails: y = -18, 0, +18 cm; one pin cuts both sides
-        for hy in (-18.0, 0.0, 18.0):
-            skb2 = root.sketches.add(root.yZConstructionPlane)
-            skb2.sketchCurves.sketchCircles.addByCenterRadius(
-                adsk.core.Point3D.create(hy, zB, 0), spD/2)
-            e2 = root.features.extrudeFeatures.createInput(
-                skb2.profiles.item(0),
-                adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-            e2.setTwoSidesExtent(
-                adsk.fusion.DistanceExtentDefinition.create(
-                    adsk.core.ValueInput.createByReal(iW/2 + 1.0)),
-                adsk.fusion.DistanceExtentDefinition.create(
-                    adsk.core.ValueInput.createByReal(iW/2 + 1.0)))
-            pin = root.features.extrudeFeatures.add(e2).bodies.item(0)
-            for body in list(root.bRepBodies):
-                if body == pin: continue
-                if not (body.name.startswith("rail_left")
-                        or body.name.startswith("rail_right")): continue
-                bb = body.boundingBox
-                if bb.minPoint.y < hy < bb.maxPoint.y:
-                    b.cut(body, pin, keep=True)
-            if pin.isValid: pin.deleteMe()
-        # top/bottom rails: x = -13, +13; one pin cuts both
-        for hx in (-13.0, 13.0):
-            skb3 = root.sketches.add(root.xZConstructionPlane)
-            skb3.sketchCurves.sketchCircles.addByCenterRadius(
-                adsk.core.Point3D.create(hx, zB, 0), spD/2)
-            e3 = root.features.extrudeFeatures.createInput(
-                skb3.profiles.item(0),
-                adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-            e3.setTwoSidesExtent(
-                adsk.fusion.DistanceExtentDefinition.create(
-                    adsk.core.ValueInput.createByReal(iH/2 + 1.0)),
-                adsk.fusion.DistanceExtentDefinition.create(
-                    adsk.core.ValueInput.createByReal(iH/2 + 1.0)))
-            pin = root.features.extrudeFeatures.add(e3).bodies.item(0)
-            for body in list(root.bRepBodies):
-                if body == pin: continue
-                if not (body.name.startswith("rail_top")
-                        or body.name.startswith("rail_bottom")): continue
-                bb = body.boundingBox
-                if bb.minPoint.x < hx < bb.maxPoint.x:
-                    b.cut(body, pin, keep=True)
-            if pin.isValid: pin.deleteMe()
+        # mains lead groove: 16 wide x 8 deep, rounded (4 stepped boxes),
+        # rear face, from the cavity edge to the bottom outer edge
+        bM = piece("rail_bottom", cutsX, MAINS_X)
+        for hw, za, zb in ((0.80, -0.01, 0.2), (0.75, 0.19, 0.4),
+                           (0.62, 0.39, 0.6), (0.40, 0.59, 0.8)):
+            b.cut(bM, rbox('x', -1, MAINS_X - hw, MAINS_X + hw, -0.01,
+                           fW + 0.01, za, zb), "mains groove step")
 
-        # --- INNER (front-plane) mending plates v29: recesses at every
-        # seam on the cavity-facing inner faces (z 36-56mm), 50x20x5mm,
-        # side-rail corner-seam plates shifted 15mm toward the corner.
-        # Pilot holes: symmetric full-span pins (the verified pattern),
-        # cutting BOTH opposing rails and the CORNER bodies (v27 missed
-        # corners entirely and used an unverified extrude direction).
-        zi0, zi1, zim = 3.6, 5.6, 4.6
-        xpin_pos, ypin_pos = set(), set()
-        for axis, sign, cuts in seamREG:
-            n_ = len(cuts) - 1
-            for idx, sm in enumerate(cuts):
-                shift = 0.0
-                if axis == 'y' and (idx == 0 or idx == n_):
-                    shift = 1.5 * (1 if idx == n_ else -1)
-                ctr = sm + shift
-                if axis == 'x':
-                    face = sign * iH/2
-                    rec = b.box(ctr - 2.5, face, zi0,
-                                ctr + 2.5, face + sign*0.5, zi1)
-                    for off in (-2.0, 2.0): xpin_pos.add(round(ctr+off, 3))
-                else:
-                    face = sign * iW/2
-                    rec = b.box(face, ctr - 2.5, zi0,
-                                face + sign*0.5, ctr + 2.5, zi1)
-                    for off in (-2.0, 2.0): ypin_pos.add(round(ctr+off, 3))
-                rbb = rec.boundingBox
-                for body in list(root.bRepBodies):
-                    if body == rec: continue
-                    if not (body.name.startswith("rail")
-                            or body.name.startswith("corner")): continue
-                    bb = body.boundingBox
-                    if (bb.minPoint.x < rbb.maxPoint.x and
-                        bb.maxPoint.x > rbb.minPoint.x and
-                        bb.minPoint.y < rbb.maxPoint.y and
-                        bb.maxPoint.y > rbb.minPoint.y):
-                        b.cut(body, rec, keep=True)
-                if rec.isValid: rec.deleteMe()
+        # =============== MONITOR REST-BEAM SEATS ===============
+        for sx, nm in ((+1, "rail_right_p1"), (-1, "rail_left_p1")):
+            body = PCS[nm]
+            # slot floor = beam underside exactly (the beam RESTS on it);
+            # 1 mm play above
+            b.cut(body, rbox('y', sx, BEAM_Y0, BEAM_Y1 + 2*FIT, -0.01,
+                             SLOT_D, -0.01, BEAM_Z1 + FIT), "beam slot")
+            b.cut(body, rbox('y', sx, BEAM_Y1, TAB_Y1 + 2*FIT, -0.01,
+                             SLOT_D, -0.01, TAB_Z1 + FIT), "beam tab recess")
+            b.cut(body, rcyl('y', sx, TAB_SCREW_Y, SLOT_D/2, TAB_Z1,
+                             TAB_Z1 + 1.3, 0.28), "beam tab screw pilot")
+        for s in (-1, 1):
+            for x0, x1 in LEG_X:
+                body = piece("rail_bottom", cutsX, s*(x0 + x1)/2)
+                b.cut(body, rbox('x', -1, s*(x0 - FIT), s*(x1 + FIT), -0.01,
+                                 LEG_D, -0.01, BEAM_Z1 + FIT),
+                      "beam foot socket")
 
-        def _span_pin(plane, pos, half_reach, names):
-            skq = root.sketches.add(plane)
-            skq.sketchCurves.sketchCircles.addByCenterRadius(
-                adsk.core.Point3D.create(pos, zim, 0), spD/2)
-            eq = root.features.extrudeFeatures.createInput(
-                skq.profiles.item(0),
-                adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-            eq.setTwoSidesExtent(
-                adsk.fusion.DistanceExtentDefinition.create(
-                    adsk.core.ValueInput.createByReal(half_reach)),
-                adsk.fusion.DistanceExtentDefinition.create(
-                    adsk.core.ValueInput.createByReal(half_reach)))
-            pin = root.features.extrudeFeatures.add(eq).bodies.item(0)
-            for body in list(root.bRepBodies):
-                if body == pin: continue
-                if not any(body.name.startswith(nm) for nm in names): continue
-                bb = body.boundingBox
-                px = pos if plane == root.xZConstructionPlane else None
-                if px is not None:
-                    inside = bb.minPoint.x - 0.05 < pos < bb.maxPoint.x + 0.05
-                else:
-                    inside = bb.minPoint.y - 0.05 < pos < bb.maxPoint.y + 0.05
-                if inside:
-                    b.cut(body, pin, keep=True)
-            if pin.isValid: pin.deleteMe()
-
-        for pos in sorted(xpin_pos):
-            _span_pin(root.xZConstructionPlane, pos, iH/2 + 1.35,
-                      ("rail_top", "rail_bottom", "corner"))
-        for pos in sorted(ypin_pos):
-            _span_pin(root.yZConstructionPlane, pos, iW/2 + 1.35,
-                      ("rail_left", "rail_right", "corner"))
-
-        # --- rear panel M3 pilot holes in the rebate ledge ---
-        for axis, sign, nm in (('x',+1,"rail_top"),('x',-1,"rail_bottom"),
-                               ('y',+1,"rail_right"),('y',-1,"rail_left")):
-            lim = (oW/2 - cext) if axis=='x' else (oH/2 - cext)
-            led_c = (sign*iH/2 + sign*rebW/2) if axis=='x' else \
-                    (sign*iW/2 + sign*rebW/2)
+        # =============== SMALL FIXINGS ===============
+        # top strap pilots (strap parts unchanged from supports v35)
+        for sx, nm in ((+1, "rail_right"), (-1, "rail_left")):
+            b.cut(piece(nm, cutsY, 31.3),
+                  rbox('y', sx, 31.3 - HPIL/2, 31.3 + HPIL/2, -0.01, 1.0,
+                       3.0 - HPIL/2, 3.0 + HPIL/2), "strap pilot")
+            # blackout pilots, side rails
+            for hy in (-18.0, 0.0, 18.0):
+                b.cut(piece(nm, cutsY, hy),
+                      rbox('y', sx, hy - HPIL/2, hy + HPIL/2, -0.01, 1.0,
+                           5.2 - HPIL/2, 5.2 + HPIL/2), "blackout pilot")
+        for sy, nm in ((+1, "rail_top"), (-1, "rail_bottom")):
+            for hx in (-10.0, 10.0):
+                b.cut(piece(nm, cutsX, hx),
+                      rbox('x', sy, hx - HPIL/2, hx + HPIL/2, -0.01, 1.0,
+                           5.2 - HPIL/2, 5.2 + HPIL/2), "blackout pilot")
+        # rear panel M3 pilots in the rebate ledge (same 12 positions as
+        # the panel script expects)
+        for axis, sign, nm, cuts, lim in (
+                ('x', +1, "rail_top", cutsX, limX),
+                ('x', -1, "rail_bottom", cutsX, limX),
+                ('y', +1, "rail_right", cutsY, limY),
+                ('y', -1, "rail_left", cutsY, limY)):
             for pos in (-lim*0.6, 0.0, lim*0.6):
-                for body in list(root.bRepBodies):
-                    if not body.name.startswith(nm): continue
-                    bb = body.boundingBox
-                    lo_ = bb.minPoint.x if axis=='x' else bb.minPoint.y
-                    hi_ = bb.maxPoint.x if axis=='x' else bb.maxPoint.y
-                    if lo_ + 1 < pos < hi_ - 1:
-                        cx_, cy_ = (pos, led_c) if axis=='x' else (led_c, pos)
-                        b.cut(body, b.cyl_z(cx_, cy_, -0.01, 0.8, 0.28))
-                        break
+                b.cut(piece(nm, cuts, pos),
+                      rcyl(axis, sign, pos, rebW/2, -0.01, 0.8, 0.28),
+                      "rear panel pilot")
+        # cleat: M4 from the rear + captured-nut T-slot from the top edge
+        hy = oH/2 - fW/2
+        for s in (-1, 1):
+            for cx in CLEAT_X:
+                hx = s*cx
+                body = piece("rail_top", cutsX, hx)
+                b.cut(body, b.cyl_z(hx, hy, -0.01, 1.4, 0.45), "cleat M4 hole")
+                b.cut(body, b.box(hx - 0.38, hy - 0.45, 0.8,
+                                  hx + 0.38, oH/2 + 0.01, 1.15),
+                      "cleat nut slot")
 
-        # --- cleat M4 holes + 9mm nut-seat counterbores, top rail ---
-        for hx in (-4.2, 4.2):   # v19: clear of plate recesses, within Z-bar
-            hy = oH/2 - fW/2
-            for body in all_pieces:
-                if not body.name.startswith("rail_top"): continue
-                bb = body.boundingBox
-                if bb.minPoint.x < hx < bb.maxPoint.x:
-                    # rear-entry bolt hole (M4x16 through Z-bar + rear
-                    # wall into captured nut) + T-slot from outer face
-                    b.cut(body, b.cyl_z(hx, hy, -0.01, 1.4, 0.45))
-                    b.cut(body, b.box(hx-0.38, hy-0.45, 0.8,
-                                      hx+0.38, oH/2+0.01, 1.15))
+        # =============== TEST MODE: keep one short joint pair ===============
+        keep = set(PCS.keys())
+        if MODE == "TEST":
+            ta, tb = PCS["rail_top_p2"], PCS["rail_top_p3"]
+            b.cut(ta, b.box(-13.0, iH/2 - 1, -1, 2.5, oH/2 + 1, fD + 1),
+                  "test trim")
+            b.cut(tb, b.box(13.5, iH/2 - 1, -1, 24.0, oH/2 + 1, fD + 1),
+                  "test trim")
+            ta.name = "TEST_pole_piece"; tb.name = "TEST_hole_piece"
+            keep = {"TEST_pole_piece", "TEST_hole_piece"}
 
-        # cleanup: hide every tool sketch and construction plane so no
-        # stray outlines render after the run
+        # =============== CLEANUP ===============
         for sk in list(root.sketches):
             try: sk.deleteMe()
             except:
@@ -581,28 +467,34 @@ def run(context):
         for pl in root.constructionPlanes:
             try: pl.isVisible = False
             except: pass
-
-        # cleanup: delete EVERYTHING that is not a named frame piece
-        # (orphan solids, surface slivers, tool stubs - regardless of name)
+        kept = 0
         for body in list(root.bRepBodies):
-            if not (body.name.startswith("rail_")
-                    or body.name.startswith("corner_")):
+            if body.name in keep or (MODE != "TEST" and (
+                    body.name.startswith("rail_")
+                    or body.name.startswith("corner_"))):
+                kept += 1
+            else:
                 try: body.deleteMe()
                 except: pass
 
         app.activeViewport.fit()
+        if b.failed:
+            chk = ("SELF-CHECK FAILED - DO NOT PRINT. Send this list back:\n  "
+                   + "\n  ".join(b.failed[:14]))
+        else:
+            chk = f"Self-check: {b.n_ops} cut/join operations, 0 failed."
         ui.messageBox(
-            f"Engineering frame [{__VERSION__}]: {len(all_pieces)} pieces, ALL with\n"
-            "integral finger teeth (even bands protrude 12mm at seams).\n"
-            "Slide any two neighbours together with Move to see the mesh.\n\n"
-            "Included: glass slot, stepped LED channel + lips, enclosed\n"
-            "button pocket + wire slots, radar pocket (x=+130), mains\n"
-            "tunnel (BR seam, x=+225), rear rebate + M3 pilots, cleat\n"
-            "M4 + T-slots, clearance-fitted teeth.\n\n"
-            "v20: CONTINUOUS uniform 18mm channel, ROUNDED corner sweeps\n"
-            "(R18 outer arc + inner relief - curved bracket clears by\n"
-            "6/11mm), interrupted only at the button. All non-frame\n"
-            "bodies auto-deleted. ALL PIECES print-ready after visual\n"
-            "verification; sanity-check bracket height <=12.5mm on arrival.")
+            f"Frame [{__VERSION__}] mode {MODE}: {kept} bodies.\n"
+            f"{chk}\n\n"
+            f"LED channel {chW*10:.1f} mm wide. Poles 14x16 mm, "
+            f"{POLE_LEN*10:.0f} mm deep ({POLE_LEN_SIDE*10:.0f} on side mid seams).\n"
+            "Look for, before exporting:\n"
+            " - corners: rounded channel bend, NO square notch\n"
+            " - every seam: 3 poles on one piece, 3 holes on the other\n"
+            " - bottom rail back face: solid, except the mains groove\n"
+            " - bottom rail top face: button opening (middle piece),\n"
+            "   radar slot, 4 beam foot sockets\n"
+            " - side rails, bottom end: beam slot + screw-tab recess\n"
+            "Print ONE test pair (TEST script) before the frame.")
     except Exception:
         if ui: ui.messageBox("Failed:\n{}".format(traceback.format_exc()))

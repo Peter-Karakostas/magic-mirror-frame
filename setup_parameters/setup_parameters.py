@@ -8,7 +8,7 @@ PLACEHOLDER values are marked; replace them once measured, then re-run.
 
 import adsk.core, adsk.fusion, traceback
 
-__VERSION__ = "v30-PROD-2026-08-20"
+__VERSION__ = "v31-POLES-2026-11-21"
 
 # name: (expression_mm, comment)
 PARAMS = {
@@ -31,7 +31,7 @@ PARAMS = {
 
     # --- LED (BTF FCOB addressable WS2811/WS2814, 10mm strip, FLAT-mounted,
     #     L-corner connectors -> square light path inside rounded exterior) ---
-    "ledChW":        ("13 mm",   "Channel width: 10mm strip + 1.5mm/side (coupon v1: shadowed at 11)"),
+    "ledChW":        ("18 mm",   "Channel width 18 (v31). v20-v30 files said 13 by mistake - the printed frame #1 is 13"),
     "ledChD":        ("14 mm",   "Deep channel: connector fully hidden + 9-10mm LED-to-diffuser gap (kills hotspots)"),
     "brkPockLen":    ("72 mm",   "BOXPUT fold-bracket pocket leg length (64.5 + margin)"),
     "brkPockWiden":  ("5 mm",    "Corner pocket inner widening (channel 13->18mm, wall to slot 4mm)"),
@@ -83,8 +83,8 @@ PARAMS = {
     "ventPitch":     ("60 mm",   "Spacing between vent slots"),
 
     # --- Joinery / printing ---
-    "jointClear":    ("0.4 mm",  "Joint clearance/side (coupon v1: 0.25 needed hammering; loose+epoxy > tight)"),
-    "fingerLen":     ("12 mm",   "Finger joint finger length"),
+    "jointClear":    ("0.4 mm",  "UNUSED since v31 (pole joints: clearances are constants in 05)"),
+    "fingerLen":     ("12 mm",   "UNUSED since v31 (no finger teeth)"),
     "filletR":       ("2.5 mm",  "Internal corner fillet radius - EVERY inside corner"),
     "bedMax":        ("250 mm",  "Usable print length per piece (X2D)"),
 }
@@ -116,6 +116,7 @@ def run(context):
         ui.messageBox(
             "Magic Mirror parameters ready. [" + __VERSION__ + "]\n"
             f"Created: {created}   Updated: {updated}\n\n"
+            "LED channel width (ledChW) = 18 mm.\n"
             "PLACEHOLDERS still to measure:\n"
             "  monBorders (4), radarBoard, camLensD, cornerPock\n"
             "Edit them under Modify > Change Parameters, or edit this "

@@ -1,34 +1,54 @@
-"""Magic Mirror - monitor supports: shelf BEAM (2 halves) + top STRAP
-(2 halves). Run in a FRESH design (no parameters needed - measured
-values are constants below). Direct mode; export all 4 bodies.
+"""Magic Mirror - monitor supports for FRAME v31 (pole-joint frame).
 
-MEASURED INPUTS (2026-08-27): monitor portrait 605x353mm, bottom edge
-5mm thick for first 7mm of height, button strip intrudes one end
-(wall relieved 100mm - place that half on the button-strip side),
-connectors point rearward (clean shelf), PSU near top.
+Run in a FRESH design (no parameters needed). Builds 4 bodies:
+  beam_relief_half, beam_plain_half  - the REST BEAM the monitor sits on
+  strap_half_A, strap_half_B         - top strap (unchanged from v35)
 
-__VERSION__ = "v35-PROD-2026-08-27"
+REST BEAM v36 - drops into the frame from behind, no side screws:
+  * each end has a 10 mm tongue that sits in the slot in the side rail
+  * two feet per half stand in 8 mm sockets in the bottom rail
+    (feet at 40-70 and 180-215 mm from centre: clear of the button
+    opening, radar slot and mains groove)
+  * one M3x12 per end, driven straight in from the back through the
+    thin tab above the tongue
+  * between the feet the beam is open underneath (20 mm high) and the
+    whole 21 mm behind the beam is free for cables
+  * prints flat on its back face, no supports. 251 mm long: if the
+    slicer says it does not fit, rotate it 45 degrees on the plate.
+The relief half (lip stops 100 mm short) goes on the monitor's
+button-strip side, as before.
+
+ONLY fits frame v31. It does not fit the frame printed from v30.
 """
 import adsk.core, adsk.fusion, traceback
 
-# ---- constants (cm) ----
-SPAN   = 48.3      # opening 48.5 minus 2mm clearance
-HALF   = SPAN/2
-JC     = 0.04      # joint clearance (validated on frame teeth)
-SHELF_Y = -30.25   # shelf top surface: monitor bottom edge height
-BODY_Y0, BODY_Y1 = -33.5, SHELF_Y
-BODY_Z0, BODY_Z1 = 1.5, 5.3     # rear face 15mm off rear plane
-SHELF_Z1 = 5.79                 # shelf stops 1.1mm shy of glass (5.9)
-WALL_Y1  = SHELF_Y + 0.6        # 6mm wall (thin-zone safe)
-WALL_Z0  = 4.7                  # 6mm thick wall, face at 5.3
-RELIEF   = 10.0                 # wall stops this far from one end
-PLATE_T  = 0.4                  # end screw-plates
-WIN_L    = 2.2                  # driver window length
-HOLE_D   = 0.34                 # M3 clearance
-BEAM_HOLES = ((-32.0, 2.0), (-32.0, 4.5))  # (y,z) cm - printed rail pilots
+__VERSION__ = "v36-SEATED-2026-11-21"
+
+# ---- constants (cm) - must match 05_frame_v31 ----
+IN_X    = 24.25            # side rail inner face (opening 485)
+IN_Y    = -35.5            # bottom rail inner face
+GAP     = 0.1              # beam body stops 1 mm short of the rail face
+TONGUE  = 0.9              # tongue length inside the 10 mm slot
+BEAM_Y0, BEAM_Y1 = -33.5, -30.25   # bar; top = monitor bottom edge
+Z0, Z1  = 2.4, 5.3         # bar back / front (glass back is 5.9)
+SHELF_Z1 = 5.79            # shelf ledge stops 1.1 mm shy of the glass
+LIP_Y1  = BEAM_Y1 + 0.6    # 6 mm lip behind the monitor's bottom edge
+RELIEF  = 10.0             # lip stops this far from one end
+LEG_X   = ((4.0, 7.0), (18.0, 21.5))
+LEG_Y0  = IN_Y - 0.8                   # foot bottom = socket floor (8 deep)
+TAB_X0  = 23.4
+TAB_Y1  = -28.4
+TAB_Z1  = 3.0
+TAB_SCREW = (IN_X + 0.5, -29.3)        # matches the pilot in the rail
+CENTRE_GAP = 0.02
+
+# ---- top strap (unchanged v35 geometry) ----
+SPAN = 48.3; HALF = SPAN/2; JC = 0.04
+PLATE_T = 0.4; WIN_L = 2.2
 STRAP_Y0, STRAP_Y1 = 30.4, 32.4
 STRAP_Z0, STRAP_Z1 = 2.6, 5.35
 STRAP_HOLE = (31.3, 3.0)
+
 
 def run(context):
     ui = None
@@ -38,104 +58,113 @@ def run(context):
         design.designType = adsk.fusion.DesignTypes.DirectDesignType
         root = design.rootComponent
         P = adsk.core.Point3D.create
+        failed = []
 
-        def box(x0,y0,z0,x1,y1,z1):
+        def box(x0, y0, z0, x1, y1, z1):
             sk = root.sketches.add(root.xYConstructionPlane)
             sk.sketchCurves.sketchLines.addTwoPointRectangle(
-                P(min(x0,x1),min(y0,y1),0), P(max(x0,x1),max(y0,y1),0))
+                P(min(x0, x1), min(y0, y1), 0), P(max(x0, x1), max(y0, y1), 0))
             ei = root.features.extrudeFeatures.createInput(
                 sk.profiles.item(0),
                 adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
             ei.setTwoSidesExtent(
                 adsk.fusion.DistanceExtentDefinition.create(
-                    adsk.core.ValueInput.createByReal(max(z0,z1))),
+                    adsk.core.ValueInput.createByReal(max(z0, z1))),
                 adsk.fusion.DistanceExtentDefinition.create(
-                    adsk.core.ValueInput.createByReal(-min(z0,z1))))
+                    adsk.core.ValueInput.createByReal(-min(z0, z1))))
             return root.features.extrudeFeatures.add(ei).bodies.item(0)
 
-        def join(a,b_):
-            t = adsk.core.ObjectCollection.create(); t.add(b_)
-            ci = root.features.combineFeatures.createInput(a,t)
-            ci.operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
-            root.features.combineFeatures.add(ci)
-        def cut(a,b_,keep=False):
-            t = adsk.core.ObjectCollection.create(); t.add(b_)
-            ci = root.features.combineFeatures.createInput(a,t)
-            ci.operation = adsk.fusion.FeatureOperations.CutFeatureOperation
-            ci.isKeepToolBodies = keep
-            root.features.combineFeatures.add(ci)
+        def _comb(a, b_, op, label, grow):
+            nm = a.name
+            try:
+                v0 = a.volume
+                t = adsk.core.ObjectCollection.create(); t.add(b_)
+                ci = root.features.combineFeatures.createInput(a, t)
+                ci.operation = op
+                root.features.combineFeatures.add(ci)
+                v1 = a.volume
+                if not ((v1 > v0 + 1e-6) if grow else (v1 < v0 - 1e-6)):
+                    failed.append(f"{label} on {nm}: no change")
+            except Exception as e:
+                failed.append(f"{label} on {nm}: ERROR {str(e)[:60]}")
+        def join(a, b_, label="join"):
+            _comb(a, b_, adsk.fusion.FeatureOperations.JoinFeatureOperation,
+                  label, True)
+        def cut(a, b_, label="cut"):
+            _comb(a, b_, adsk.fusion.FeatureOperations.CutFeatureOperation,
+                  label, False)
 
-        def support_half(x_out, name, y0, y1, z0, z1, shelf, holes, relief):
-            """One half spanning x 0..x_out (sign gives side)."""
-            s = 1 if x_out > 0 else -1
-            b_ = box(0, y0, z0, x_out, y1, z1)
+        # ------------------------------------------------ REST BEAM
+        def beam_half(s, name, relief):
+            xin = s*CENTRE_GAP
+            xb  = s*(IN_X - GAP)               # body end
+            xt  = s*(IN_X + TONGUE)            # tongue end
+            # bar + tongue (one box, same section)
+            b_ = box(xin, BEAM_Y0, Z0, xt, BEAM_Y1, Z1)
             b_.name = name
-            if shelf:   # beam only: shelf ledge + wall
-                join(b_, box(0, BODY_Y1-0.8, WALL_Z0, x_out, BODY_Y1, SHELF_Z1))
-                # v32 CABLE HIGHWAY: clear the rear of the body between
-                # the end zones -> 21mm gap behind beam (rear plane to
-                # z=2.4), clearing the button passage (18mm) fully
-                cut(b_, box(s*0.0, BODY_Y0-0.01, BODY_Z0-0.01,
-                            x_out - s*(PLATE_T+WIN_L), BODY_Y1-0.8, 2.4))
-                # v32 CABLE ARCHES: 20x8mm scallops on the bottom edge
-                for ax in (4.0, 12.0, 20.0):
-                    if ax < abs(x_out) - 3.2:
-                        cut(b_, box(s*ax-1.0, BODY_Y0-0.01, 2.3,
-                                    s*ax+1.0, BODY_Y0+0.8, 5.4))
-                # v32 ZIP-TIE SLOTS: through-slots for strapping runs
-                for zx in (8.0, 16.0):
-                    if zx < abs(x_out) - 3.2:
-                        cut(b_, box(s*zx-0.2, -31.6, 2.3,
-                                    s*zx+0.2, -31.0, 5.4))
-                wx1 = x_out - s*RELIEF if relief else x_out
-                join(b_, box(0, BODY_Y1, WALL_Z0, wx1, WALL_Y1, 5.3))
-            # centre finger joint: 3 vertical teeth on +x half, recesses on -x
-            th = (y1-y0)/3
-            tz0 = (2.4 if shelf else z0) + JC   # beam teeth sit above highway
-            for k in range(3):
-                ty0, ty1 = y0+k*th, y0+(k+1)*th
-                if s > 0 and k % 2 == 0:
-                    join(b_, box(0, ty0+JC, tz0, -1.0+JC, ty1-JC, z1-JC))
-                if s < 0 and k % 2 == 0:
-                    cut(b_, box(0.01, ty0, z0-0.01, -1.0, ty1, z1+0.01))
-            # end plate + driver window
-            cut(b_, box(x_out - s*(PLATE_T+WIN_L), y0-0.01, z0+0.2,
-                        x_out - s*PLATE_T, y1+0.01, z1-0.3))
-            # v34: screw holes as EXPLICIT box cuts through the plate
-            # (sketch-plane pins failed silently twice; box cuts are the
-            # method every visible feature in this script was made with).
-            # 3.6mm square = identical clearance fit for the M3 shank.
-            hook = holes[1] if shelf else holes[0]
-            for hy, hz in holes:
-                cut(b_, box(x_out - s*(PLATE_T+0.05), hy-0.18, hz-0.18,
-                            x_out + s*0.05, hy+0.18, hz+0.18))
-                if (hy, hz) == hook:
-                    # v35 HOOK SLOT: open upward to the plate's top edge -
-                    # pre-set this screw in the rail, lower the part onto it
-                    cut(b_, box(x_out - s*(PLATE_T+0.05), hy-0.18, hz-0.18,
-                                x_out + s*0.05, y1+0.01, hz+0.18))
+            # shelf ledge towards the glass (not inside the slot)
+            join(b_, box(xin, BEAM_Y1 - 0.8, Z1 - 0.01, xb, BEAM_Y1, SHELF_Z1),
+                 "shelf ledge")
+            # lip behind the monitor's bottom edge
+            wx = s*(IN_X - GAP - (RELIEF if relief else 0.0))
+            join(b_, box(xin, BEAM_Y1 - 0.01, Z0, wx, LIP_Y1, Z1), "lip")
+            # feet
+            for x0, x1 in LEG_X:
+                join(b_, box(s*x0, LEG_Y0, Z0, s*x1, BEAM_Y0 + 0.01, Z1),
+                     "foot")
+            # screw tab above the tongue (thin, at the back) + M3 hole
+            join(b_, box(s*TAB_X0, BEAM_Y1 - 0.01, Z0, xt, TAB_Y1, TAB_Z1),
+                 "screw tab")
+            tx, ty = s*TAB_SCREW[0], TAB_SCREW[1]
+            cut(b_, box(tx - 0.18, ty - 0.18, Z0 - 0.01,
+                        tx + 0.18, ty + 0.18, TAB_Z1 + 0.01), "tab screw hole")
+            # zip-tie slots through the bar
+            for zx in (10.0, 15.0):
+                cut(b_, box(s*zx - 0.2, -32.2, Z0 - 0.01,
+                            s*zx + 0.2, -31.6, Z1 + 0.01), "zip-tie slot")
             return b_
 
-        halves = []
-        halves.append(support_half(+HALF, "beam_relief_half",
-            BODY_Y0, BODY_Y1, BODY_Z0, BODY_Z1, True, BEAM_HOLES, True))
-        halves.append(support_half(-HALF, "beam_plain_half",
-            BODY_Y0, BODY_Y1, BODY_Z0, BODY_Z1, True, BEAM_HOLES, False))
-        halves.append(support_half(+HALF, "strap_half_A",
-            STRAP_Y0, STRAP_Y1, STRAP_Z0, STRAP_Z1, False, [STRAP_HOLE], False))
-        halves.append(support_half(-HALF, "strap_half_B",
-            STRAP_Y0, STRAP_Y1, STRAP_Z0, STRAP_Z1, False, [STRAP_HOLE], False))
+        # ------------------------------------------------ TOP STRAP (v35)
+        def strap_half(x_out, name):
+            s = 1 if x_out > 0 else -1
+            y0, y1, z0, z1 = STRAP_Y0, STRAP_Y1, STRAP_Z0, STRAP_Z1
+            b_ = box(0, y0, z0, x_out, y1, z1)
+            b_.name = name
+            th = (y1 - y0)/3
+            for k in range(3):
+                ty0, ty1 = y0 + k*th, y0 + (k+1)*th
+                if s > 0 and k % 2 == 0:
+                    join(b_, box(0, ty0 + JC, z0 + JC, -1.0 + JC, ty1 - JC,
+                                 z1 - JC), "strap tooth")
+                if s < 0 and k % 2 == 0:
+                    cut(b_, box(0.01, ty0, z0 - 0.01, -1.0, ty1, z1 + 0.01),
+                        "strap tooth recess")
+            cut(b_, box(x_out - s*(PLATE_T + WIN_L), y0 - 0.01, z0 + 0.2,
+                        x_out - s*PLATE_T, y1 + 0.01, z1 - 0.3),
+                "driver window")
+            hy, hz = STRAP_HOLE
+            # hook slot: open upward - pre-set the screw, lower strap on
+            cut(b_, box(x_out - s*(PLATE_T + 0.05), hy - 0.18, hz - 0.18,
+                        x_out + s*0.05, y1 + 0.01, hz + 0.18), "hook slot")
+            return b_
+
+        beam_half(+1, "beam_relief_half", True)
+        beam_half(-1, "beam_plain_half", False)
+        strap_half(+HALF, "strap_half_A")
+        strap_half(-HALF, "strap_half_B")
 
         for sk in list(root.sketches):
             try: sk.deleteMe()
             except: pass
         app.activeViewport.fit()
+        chk = ("SELF-CHECK FAILED - DO NOT PRINT:\n  " + "\n  ".join(failed)
+               if failed else "Self-check: 0 failed operations.")
         ui.messageBox(
-            "[v31-PROD] Beam halves + strap halves built.\n"
-            "Beam: shelf top -302.5 (605mm monitor centred), 6mm wall,\n"
-            "relief 100mm on 'beam_relief_half' - install that half on\n"
-            "the button-strip side. Screws M3x12 via end plates through\n"
-            "driver windows. VERIFY: holes present in all 4 end plates,\n"
-            "teeth mesh at centre, shelf/wall on beam halves only.")
+            f"Supports [{__VERSION__}] for FRAME v31 only.\n{chk}\n\n"
+            "Rest beam: 2 halves. Each has an end tongue (side-rail slot),\n"
+            "2 feet (bottom-rail sockets) and a thin tab with one M3 hole.\n"
+            "Drops in from the back; relief half on the button-strip side.\n"
+            "Strap halves: unchanged (hook slot + M3).\n"
+            "Print beams flat on the back face; rotate 45 deg if too long.")
     except Exception:
         if ui: ui.messageBox("Failed:\n{}".format(traceback.format_exc()))
