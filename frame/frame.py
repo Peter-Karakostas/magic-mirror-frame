@@ -1,4 +1,13 @@
-"""Magic Mirror - Step 5 (v32): frame with PLUG-IN POLE JOINTS + OUTER LIP.
+"""Magic Mirror - Step 5 (v33): POLE JOINTS + LIP ALL THE WAY ROUND.
+
+v33 against v32: the 2 mm lip now runs round the whole section of the
+pole piece (outer side, front face, inner side, back face), 5 mm past
+the seam; the hole piece is stepped in all round to slide inside it.
+The lip is interrupted only where the section is open anyway (LED
+channel mouth, glass slot mouth, rear panel rebate). On the two
+service seams (bottom corner <-> side rail) the INNER side has no lip,
+because the monitor-beam slot sits right there.
+(v32 notes follow)
 
 v32 against v31:
   * NO mending plates at all (rear recesses and pilots removed).
@@ -38,7 +47,7 @@ plane. Nothing in this file uses an XZ/YZ sketch plane.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "v32-POLES-LIP-2026-11-21"
+__VERSION__ = "v33-RINGLIP-2026-11-21"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
@@ -48,8 +57,9 @@ POLE_CLR      = 0.03   # glue/fit clearance per side
 POLE_ROOF     = 0.02   # extra on the hole roof (bridged layers sag)
 SOCK_EXTRA    = 0.10   # hole is this much deeper than the pole
 TIP_LEN, TIP_IN = 0.4, 0.05   # lead-in: last 4 mm of a pole is 0.5 mm slimmer/side
-LIP_LEN, LIP_T = 0.6, 0.2     # outer-wall lip: 6 mm past the seam, 2 mm thick
-LIP_CLR, LIP_END = 0.015, 0.02  # 0.15 mm behind the lip, 0.2 mm at its tip
+LIP_LEN, LIP_T = 0.5, 0.2     # ring lip: 5 mm past the seam, 2 mm thick
+LIP_CLR, LIP_END = 0.015, 0.02  # 0.15 mm behind the side lips, 0.2 mm at the tip
+LIP_CLR_Z = 0.025             # 0.25 mm under the front lip / over the back lip
 LOCK_AT = (1.6, 3.1)          # lock screws: distance from the seam (cm)
 # pole layouts: (r0, r1, z0, z1); r = distance from the rail's INNER face
 LAY_W = ((0.6, 2.0, 0.9, 2.5), (4.0, 5.4, 0.9, 2.5), (2.3, 3.7, 3.6, 5.2))
@@ -345,16 +355,45 @@ def run(context):
                                      r0 - POLE_CLR, r1 + POLE_CLR,
                                      z0 - POLE_CLR, z1 + POLE_CLR + POLE_ROOF),
                       "hole for " + tag)
-            # outer-wall lip on the pole piece + matching step on the
-            # hole piece (full depth, outer side face only)
-            b.join(carrier, rbox(axis, sign, a - d*0.2, a + d*LIP_LEN,
-                                 fW - LIP_T, fW, 0, fD),
-                   f"outer lip @ {axis}={a*10:.0f}")
-            b.cut(receiver, rbox(axis, sign, a - d*0.01,
-                                 a + d*(LIP_LEN + LIP_END),
-                                 fW - LIP_T - LIP_CLR, fW + 0.01,
-                                 -0.01, fD + 0.01),
+            # ---- RING LIP: 2 mm skin all round the pole piece's end,
+            # matching step all round the hole piece's end ----
+            a_in, a_out = a - d*0.2, a + d*LIP_LEN       # rooted 2 mm inside
+            ring = [("outer", fW - LIP_T, fW, 0, fD),
+                    ("back",  0, fW, 0, LIP_T),
+                    ("front", 0, fW, fD - LIP_T, fD)]
+            if not lock:
+                ring.append(("inner", 0, LIP_T, 0, fD))
+            for nm_, r0, r1, z0, z1 in ring:
+                b.join(carrier, rbox(axis, sign, a_in, a_out, r0, r1, z0, z1),
+                       f"{nm_} lip @ {axis}={a*10:.0f}")
+            # re-open the section features through the lip (and through
+            # its 2 mm root): glass slot, LED channel, grooves, rebate
+            e0, e1 = a - d*0.21, a + d*(LIP_LEN + 0.01)
+            if not lock:      # (no inner lip there -> nothing to re-open)
+                b.cut(carrier, rbox(axis, sign, e0, e1, -0.01, grv,
+                                    z_slot_b, z_slot_f), "lip: glass slot mouth")
+            b.cut(carrier, rbox(axis, sign, e0, e1, ch0, ch1,
+                                z_ch_b, z_front + 0.01), "lip: channel mouth")
+            for gw in (ch0, ch1):
+                b.cut(carrier, rbox(axis, sign, e0, e1, gw - dgD, gw + dgD,
+                                    z_front - 0.15 - dgH, z_front - 0.15),
+                      "lip: diffuser groove")
+            b.cut(carrier, rbox(axis, sign, e0, e1, -0.01, rebW,
+                                -0.01, rebD), "lip: rebate")
+            s0, s1 = a - d*0.01, a + d*(LIP_LEN + LIP_END)
+            b.cut(receiver, rbox(axis, sign, s0, s1, fW - LIP_T - LIP_CLR,
+                                 fW + 0.01, -0.01, fD + 0.01),
                   f"step for outer lip @ {axis}={a*10:.0f}")
+            b.cut(receiver, rbox(axis, sign, s0, s1, -0.01, fW + 0.01,
+                                 -0.01, LIP_T + LIP_CLR_Z),
+                  f"step for back lip @ {axis}={a*10:.0f}")
+            b.cut(receiver, rbox(axis, sign, s0, s1, -0.01, fW + 0.01,
+                                 fD - LIP_T - LIP_CLR_Z, fD + 0.01),
+                  f"step for front lip @ {axis}={a*10:.0f}")
+            if not lock:
+                b.cut(receiver, rbox(axis, sign, s0, s1, -0.01,
+                                     LIP_T + LIP_CLR, -0.01, fD + 0.01),
+                      f"step for inner lip @ {axis}={a*10:.0f}")
             if lock:
                 # SERVICE SEAM (bottom corner <-> side rail): left unglued.
                 # M3x12 from the rear through the rail wall into the two
@@ -506,8 +545,8 @@ def run(context):
             f"{POLE_LEN*10:.0f} mm deep ({POLE_LEN_SIDE*10:.0f} on side mid seams).\n"
             "Look for, before exporting:\n"
             " - corners: rounded channel bend, NO square notch\n"
-            " - every seam: 3 poles + a thin outer-wall lip on one piece,\n"
-            "   3 holes + a step on the other. NO plate recesses anywhere\n"
+            " - every seam: 3 poles + a 2 mm lip ALL ROUND on one piece,\n"
+            "   3 holes + a step all round on the other. No plate recesses\n"
             " - bottom rail back face: solid, except the mains groove\n"
             " - bottom rail top face: button opening (middle piece),\n"
             "   radar slot, 4 beam foot sockets\n"
