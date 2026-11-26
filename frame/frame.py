@@ -48,19 +48,19 @@ History of earlier versions: see git log and the archive folder.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "2026-11-21.7"
+__VERSION__ = "2026-11-26.1"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
 POLE_LEN      = 4.0    # corner seams + top/bottom rail seams
 POLE_LEN_SIDE = 3.1    # the two mid seams of each side rail (bed limit)
-POLE_CLR      = 0.03   # glue/fit clearance per side
-POLE_ROOF     = 0.02   # extra on the hole roof (bridged layers sag)
+POLE_CLR      = 0.015  # fit clearance per side (was 0.3 mm: first test pair fitted but had play)
+POLE_ROOF     = 0.015  # extra on the hole roof (bridged layers sag)
 SOCK_EXTRA    = 0.10   # hole is this much deeper than the pole
 TIP_LEN, TIP_IN = 0.4, 0.05   # lead-in: last 4 mm of a pole is 0.5 mm slimmer/side
 LIP_LEN, LIP_T = 0.5, 0.2     # ring lip: 5 mm past the seam, 2 mm thick
-LIP_CLR, LIP_END = 0.015, 0.02  # 0.15 mm behind the side lips, 0.2 mm at the tip
-LIP_CLR_Z = 0.025             # 0.25 mm under the front lip / over the back lip
+LIP_CLR, LIP_END = 0.008, 0.02  # 0.08 mm behind the side lips (was 0.15), 0.2 mm at the tip
+LIP_CLR_Z = 0.015             # 0.15 mm under the front lip / over the back lip (was 0.25)
 LOCK_AT = (0.4, 0.775)        # rear-pole screws: fraction of the pole length from the seam
 LOCK_FRONT = 0.6              # front-pole (long) screw: fraction of the pole length
 PEG_INSERTS   = True          # True: M3 heat-set insert seats in the poles. False: 2.8 mm self-tap holes
