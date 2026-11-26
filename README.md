@@ -41,21 +41,21 @@ folders side by side.
   step need supports from the plate.
 - `rail_bottom_p2`: supports inside the button pocket (not plate-only).
 - Poles: make them solid (100% modifier or 6 walls). Hole ends: 6 walls
-  over the first 45 mm.
+  over the first 45 mm. Keep modifier boxes off the outer surfaces (start
+  the pole box at the end face; make the hole box 4 mm smaller than the
+  piece all round) or their edges show as lines.
 - Beam halves: flat on the back face, no supports; rotate 45 degrees if
   the slicer says they do not fit.
 
 ## Assembly notes
 
-- No glue by design. Every seam is screwed from the back: 4x M3x12 into
-  the two rear poles and 1x M3x45 through the rail into the front pole
-  (64 + 16 machine screws in total).
-- The screws go into M3 heat-set inserts (M3 x 5.7 mm, 80 in total)
-  pressed into the poles before assembly: four into the underside of the
-  two rear poles, one into the underside of the front pole. The seat is a
-  4.1 mm hole with a slightly wider 4.4 mm mouth, so the insert's narrow
-  end drops in and stands upright before heating. Press each one in until it is just below the
-  surface; the shallow dish round the hole takes the melted rim.
+- No glue by design. Every seam has two tall poles and is screwed from
+  the back with 4x M4x16 machine screws, two into each pole (64 in total).
+- The screws go into M4 heat-set inserts (M4 x 8.1 mm, 64 in total)
+  pressed into the underside of the poles before assembly. The seat is a
+  5.7 mm hole with a slightly wider 6.1 mm mouth, so the insert's narrow
+  end drops in and stands upright before heating. Use an insert tip on
+  the iron, stop just proud, and finish flush with something flat.
 - If it flexes when hung, any seam can still be glued later with
   slow-cure epoxy.
 - Never glue the two bottom-corner-to-side-rail seams: the bottom section

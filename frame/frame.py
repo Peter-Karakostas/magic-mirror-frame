@@ -6,21 +6,20 @@ the bottom rail around the button and radar, with one real joint and one
 extra cleat bolt point added so it can be tried too.)
 
 What it builds (16 bodies): 12 rail pieces, 4 corners.
-  * Joints: every seam has 3 square poles (14 x 16 mm, 40 mm deep; 31 mm
-    on the two mid seams of each side rail - bed limit) into 3 holes,
-    plus a 2 mm lip all round the pole piece's end that slides over a
-    step on the hole piece. No mending plates.
+  * Joints: every seam has 2 tall poles (16 mm wide x 43 mm front to
+    back, 40 mm deep; 31 mm on the two mid seams of each side rail)
+    into 2 holes, plus a 2 mm lip all round the pole piece's end that
+    slides over a step on the hole piece. No mending plates.
   * EVERY seam is screwed from the back, so the frame can be built with
-    no glue: 4x M3x12 into the two rear poles and 1x M3x45 through the
-    rail into the front pole. 16 seams -> 64x M3x12 + 16x M3x45.
-  * The screws go into M3 HEAT-SET INSERTS pressed into the poles before
-    assembly (5 per seam, 80 in total): four into the underside of the
-    two rear poles, one into the underside of the front pole. Each seat
-    is a 4.1 mm hole, 6.7 mm deep, with a 4.4 mm mouth for the first
-    1.2 mm (for the common M3 x 5.7 mm insert), so the insert's narrow
-    leading end drops in and holds it upright before heating.
-    A 0.3 mm deep, 7 mm wide dish at the mouth takes the melted rim.
-    PEG_INSERTS = False gives plain 2.8 mm self-tap holes instead.
+    no glue: 2x M4x16 into each pole, 4 per seam, 64 in total.
+  * The screws go into M4 HEAT-SET INSERTS pressed into the underside
+    (back face) of the poles before assembly, 4 per seam, 64 in total.
+    Both poles sit side by side, so every insert is reached from the
+    same open face. Each seat is a 5.7 mm hole, 9.1 mm deep, with a
+    6.1 mm mouth for the first 1.2 mm (sized for the common M4 x 8.1 mm
+    insert - CHECK against your pack), so the insert's narrow end drops
+    in and stands upright before heating. A shallow dish takes the rim.
+    PEG_INSERTS = False gives plain 3.4 mm self-tap holes instead.
   * The two bottom-corner <-> side-rail seams are the service seams:
     never glue them (the bottom section comes off to release the glass).
     No inner lip there (the monitor-beam slot sits next to the seam).
@@ -48,7 +47,7 @@ History of earlier versions: see git log and the archive folder.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "2026-11-26.2"
+__VERSION__ = "2026-11-26.3"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
@@ -61,18 +60,21 @@ TIP_LEN, TIP_IN = 0.4, 0.05   # lead-in: last 4 mm of a pole is 0.5 mm slimmer/s
 LIP_LEN, LIP_T = 0.5, 0.2     # ring lip: 5 mm past the seam, 2 mm thick
 LIP_CLR, LIP_END = 0.008, 0.02  # 0.08 mm behind the side lips (was 0.15), 0.2 mm at the tip
 LIP_CLR_Z = 0.015             # 0.15 mm under the front lip / over the back lip (was 0.25)
-LOCK_AT = (0.4, 0.775)        # rear-pole screws: fraction of the pole length from the seam
-LOCK_FRONT = 0.6              # front-pole (long) screw: fraction of the pole length
-PEG_INSERTS   = True          # True: M3 heat-set insert seats in the poles. False: 2.8 mm self-tap holes
-INSERT_HOLE_D = 0.41          # bore the insert melts into (cm). 4.0 printed too tight for the insert to stand in
-INSERT_LEAD_D = 0.44          # wider mouth, 1.2 mm deep: the insert's narrow end sits in this before heating
+LOCK_AT = (0.4, 0.775)        # screws: fraction of the pole length from the seam
+SCREW_HEAD_SQ = 0.90          # square pocket for the M4 screw head (cm)
+SCREW_CLR_D   = 0.45          # M4 clearance hole through the hole piece's back wall
+PEG_INSERTS   = True          # True: M4 heat-set insert seats in the poles. False: 3.4 mm self-tap holes
+INSERT_HOLE_D = 0.57          # bore the insert melts into (cm) - common M4 x 8.1 insert wants 5.6; +0.1 as on the M3 test
+INSERT_LEAD_D = 0.61          # wider mouth, 1.2 mm deep: the insert's narrow end sits in this before heating
 INSERT_LEAD_H = 0.12
-INSERT_DEPTH  = 0.67          # hole depth: insert length 5.7 mm + 1 mm
+INSERT_DEPTH  = 0.91          # hole depth: insert length 8.1 mm + 1 mm
 INSERT_RELIEF = 0.03          # depth of the shallow dish at the mouth (room for the melted rim)
-INSERT_DISH_D = 0.70          # dish diameter; shallow enough that the insert's lead-in still reaches the 4.0 hole
-# pole layouts: (r0, r1, z0, z1); r = distance from the rail's INNER face
-LAY_W = ((0.6, 2.0, 0.9, 2.5), (4.0, 5.4, 0.9, 2.5), (2.3, 3.7, 3.6, 5.2))
-LAY_N = ((1.7, 3.1, 0.9, 2.5), (4.1, 5.5, 0.9, 2.5), (2.9, 4.3, 3.6, 5.2))
+INSERT_DISH_D = 0.90          # dish diameter
+# pole layouts: (r0, r1, z0, z1); r = distance from the rail's INNER face.
+# Two tall poles per seam. LAY_N keeps clear of the first 16 mm from the
+# inner face (monitor-beam slot, foot sockets, strap screw).
+LAY_W = ((0.6, 2.2, 0.9, 5.2), (3.8, 5.4, 0.9, 5.2))
+LAY_N = ((1.6, 3.2, 0.9, 5.2), (3.9, 5.5, 0.9, 5.2))
 SIDE_MID = 24.6        # length of the middle side-rail piece
 
 # ---------------- monitor rest-beam seats (cm) ----------------
@@ -345,7 +347,7 @@ def run(context):
             SEAMS.append(('y', sign, c[0], cb, f"{name}_p1", +1, LAY_N, POLE_LEN, True))
             SEAMS.append(('y', sign, c[1], f"{name}_p1", f"{name}_p2", +1, LAY_W, POLE_LEN_SIDE, False))
             SEAMS.append(('y', sign, c[2], f"{name}_p2", f"{name}_p3", -1, LAY_W, POLE_LEN_SIDE, False))
-            SEAMS.append(('y', sign, c[3], f"{name}_p3", ct, -1, LAY_W, POLE_LEN, False))
+            SEAMS.append(('y', sign, c[3], f"{name}_p3", ct, -1, LAY_N, POLE_LEN, False))
         seams_x(+1, "rail_top", "corner_TL", "corner_TR", LAY_W)
         seams_x(-1, "rail_bottom", "corner_BL", "corner_BR", LAY_N)
         seams_y(+1, "rail_right", "corner_BR", "corner_TR")
@@ -364,34 +366,25 @@ def run(context):
                                     z0 + INSERT_RELIEF, INSERT_DISH_D),
                       "insert mouth relief")
                 b.cut(carrier, rcyl(axis, sign, al, rc, z0 + INSERT_DEPTH - 0.01,
-                                    tip_z, 0.32), "screw tip clearance")
+                                    tip_z, 0.44), "screw tip clearance")
             else:
                 b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01,
-                                    z1 + 0.01, 0.28), label)
+                                    tip_z, 0.34), label)
 
         def lock_screws(carrier, receiver, axis, sign, a, d, lay, L):
             """Screws from the rear face of the hole piece into the poles:
-            M3x12 x2 into each of the two rear poles, M3x45 x1 through
-            the rail into the front pole. Removable shear pins."""
-            for (r0, r1, z0, z1), fr in [(q, t) for q in lay[:2]
+            2x M4x16 into each pole. Removable shear pins."""
+            h = SCREW_HEAD_SQ/2
+            for (r0, r1, z0, z1), fr in [(q, t) for q in lay
                                          for t in LOCK_AT]:
                 rc, al = (r0 + r1)/2, a + d*fr*L
-                b.cut(receiver, rbox(axis, sign, al - 0.325, al + 0.325,
-                                     rc - 0.325, rc + 0.325, -0.01, 0.5),
+                b.cut(receiver, rbox(axis, sign, al - h, al + h,
+                                     rc - h, rc + h, -0.01, 0.5),
                       "lock screw head pocket")
-                b.cut(receiver, rcyl(axis, sign, al, rc, 0.45, z0, 0.34),
+                b.cut(receiver, rcyl(axis, sign, al, rc, 0.45, z0, SCREW_CLR_D),
                       "lock screw clearance hole")
-                peg_thread(carrier, axis, sign, al, rc, z0, z1, 2.1,
+                peg_thread(carrier, axis, sign, al, rc, z0, z1, 2.3,
                            "lock screw pilot in pole")
-            r0, r1, z0, z1 = lay[2]
-            rc, al = (r0 + r1)/2, a + d*LOCK_FRONT*L
-            b.cut(receiver, rbox(axis, sign, al - 0.325, al + 0.325,
-                                 rc - 0.325, rc + 0.325, -0.01, 0.5),
-                  "long screw head pocket")
-            b.cut(receiver, rcyl(axis, sign, al, rc, 0.45, z0, 0.34),
-                  "long screw clearance hole")
-            peg_thread(carrier, axis, sign, al, rc, z0, z1, 5.0,
-                       "long screw pilot in front pole")
 
         for axis, sign, a, lo, hi, d, lay, L, lock in SEAMS:
             carrier = PCS[lo] if d > 0 else PCS[hi]
@@ -520,8 +513,9 @@ def run(context):
                 b.cut(piece(nm, cutsY, hy),
                       rbox('y', sx, hy - HPIL/2, hy + HPIL/2, -0.01, 1.0,
                            5.2 - HPIL/2, 5.2 + HPIL/2), "blackout pilot")
-        for sy, nm in ((+1, "rail_top"), (-1, "rail_bottom")):
-            for hx in (-10.0, 10.0):
+        # (top rail: 150 mm out, clear of the tall pole holes; bottom: 100 mm)
+        for sy, nm, bx in ((+1, "rail_top", 15.0), (-1, "rail_bottom", 10.0)):
+            for hx in (-bx, bx):
                 b.cut(piece(nm, cutsX, hx),
                       rbox('x', sy, hx - HPIL/2, hx + HPIL/2, -0.01, 1.0,
                            5.2 - HPIL/2, 5.2 + HPIL/2), "blackout pilot")
@@ -556,10 +550,10 @@ def run(context):
             # Test section = bottom rail from just left of the button to
             # just right of the mains groove, split at its real seam.
             #   pole piece: button recess + hole + pocket + wire slots,
-            #               one beam foot socket, rear-panel pilot, 3 poles + lip
-            #   hole piece: 3 holes + step, radar chamber, mains groove,
+            #               one beam foot socket, rear-panel pilot, 2 poles + lip
+            #   hole piece: 2 holes + step, radar chamber, mains groove,
             #               blackout pilot, rear-panel pilot
-            # The seam carries its real screws (4x M3x12 + 1x M3x45).
+            # The seam carries its real screws (4x M4x16) and insert seats.
             # Added for the test only (it lives on the top rail of the
             # real frame): one cleat M4 hole + nut slot.
             ta, tb = PCS["rail_bottom_p2"], PCS["rail_bottom_p3"]
@@ -603,14 +597,14 @@ def run(context):
         ui.messageBox(
             f"Frame [{__VERSION__}] mode {MODE}: {kept} bodies.\n"
             f"{chk}\n\n"
-            f"LED channel {chW*10:.1f} mm wide. Poles 14x16 mm, "
+            f"LED channel {chW*10:.1f} mm wide. 2 poles per seam, 16x43 mm, "
             f"{POLE_LEN*10:.0f} mm deep ({POLE_LEN_SIDE*10:.0f} on side mid seams).\n"
             "Look for, before exporting:\n"
             " - corners: rounded channel bend, NO square notch\n"
-            " - every seam: 3 poles + a 2 mm lip ALL ROUND on one piece,\n"
-            "   3 holes + a step all round on the other\n"
-            " - every seam, on the back: 5 screw pockets (4 short, 1 long);\n"
-            "   on the poles: 5 insert holes (4 underneath, 1 on the front pole)\n"
+            " - every seam: 2 tall poles + a 2 mm lip ALL ROUND on one piece,\n"
+            "   2 tall holes + a step all round on the other\n"
+            " - every seam, on the back: 4 square screw pockets (M4);\n"
+            "   underneath the poles: 4 insert holes (2 per pole)\n"
             " - bottom rail back face: solid, except the mains groove\n"
             " - bottom rail top face: button opening (middle piece),\n"
             "   radar chamber (45x22 mm opening), 4 beam foot sockets\n"

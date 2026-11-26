@@ -2,8 +2,8 @@
 (TEST_pole_piece + TEST_hole_piece) to try every fit before printing the
 frame: the joint (poles + lip), button, wire slots, beam foot socket,
 radar chamber, mains groove, glass slot, LED channel, M3 pilots, one
-cleat bolt point with its nut slot, and the seam's five screws
-(4x M3x12, 1x M3x45). It runs ../frame/frame.py in TEST mode, so there is one copy of
+cleat bolt point with its nut slot, and the seam's four M4 screws with
+their insert seats. It runs ../frame/frame.py in TEST mode, so there is one copy of
 the frame code. Run setup_parameters first, in a new empty design.
 """
 import adsk.core, traceback, os, importlib.util
