@@ -16,9 +16,9 @@ What it builds (16 bodies): 12 rail pieces, 4 corners.
   * The screws go into M3 HEAT-SET INSERTS pressed into the poles before
     assembly (5 per seam, 80 in total): four into the underside of the
     two rear poles, one into the underside of the front pole. Each seat
-    is a straight 4.0 mm hole, 6.7 mm deep (for the common M3 x 5.7 mm
-    insert - check INSERT_HOLE_D against your pack), so the insert's
-    narrow leading end drops in and holds it upright before heating.
+    is a 4.1 mm hole, 6.7 mm deep, with a 4.4 mm mouth for the first
+    1.2 mm (for the common M3 x 5.7 mm insert), so the insert's narrow
+    leading end drops in and holds it upright before heating.
     A 0.3 mm deep, 7 mm wide dish at the mouth takes the melted rim.
     PEG_INSERTS = False gives plain 2.8 mm self-tap holes instead.
   * The two bottom-corner <-> side-rail seams are the service seams:
@@ -48,7 +48,7 @@ History of earlier versions: see git log and the archive folder.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "2026-11-26.1"
+__VERSION__ = "2026-11-26.2"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
@@ -64,7 +64,9 @@ LIP_CLR_Z = 0.015             # 0.15 mm under the front lip / over the back lip 
 LOCK_AT = (0.4, 0.775)        # rear-pole screws: fraction of the pole length from the seam
 LOCK_FRONT = 0.6              # front-pole (long) screw: fraction of the pole length
 PEG_INSERTS   = True          # True: M3 heat-set insert seats in the poles. False: 2.8 mm self-tap holes
-INSERT_HOLE_D = 0.40          # hole for the insert (cm) - from the insert maker's chart
+INSERT_HOLE_D = 0.41          # bore the insert melts into (cm). 4.0 printed too tight for the insert to stand in
+INSERT_LEAD_D = 0.44          # wider mouth, 1.2 mm deep: the insert's narrow end sits in this before heating
+INSERT_LEAD_H = 0.12
 INSERT_DEPTH  = 0.67          # hole depth: insert length 5.7 mm + 1 mm
 INSERT_RELIEF = 0.03          # depth of the shallow dish at the mouth (room for the melted rim)
 INSERT_DISH_D = 0.70          # dish diameter; shallow enough that the insert's lead-in still reaches the 4.0 hole
@@ -355,6 +357,9 @@ def run(context):
             if PEG_INSERTS:
                 b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01,
                                     z0 + INSERT_DEPTH, INSERT_HOLE_D), label)
+                b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01,
+                                    z0 + INSERT_LEAD_H, INSERT_LEAD_D),
+                      "insert lead-in")
                 b.cut(carrier, rcyl(axis, sign, al, rc, z0 - 0.01,
                                     z0 + INSERT_RELIEF, INSERT_DISH_D),
                       "insert mouth relief")
