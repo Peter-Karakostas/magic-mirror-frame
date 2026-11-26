@@ -47,7 +47,7 @@ History of earlier versions: see git log and the archive folder.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "2026-11-26.3"
+__VERSION__ = "2026-11-26.4"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
@@ -63,6 +63,7 @@ LIP_CLR_Z = 0.015             # 0.15 mm under the front lip / over the back lip 
 LOCK_AT = (0.4, 0.775)        # screws: fraction of the pole length from the seam
 SCREW_HEAD_SQ = 0.90          # square pocket for the M4 screw head (cm)
 SCREW_CLR_D   = 0.45          # M4 clearance hole through the hole piece's back wall
+NUT_SLOT_W    = 0.72          # hanger nut slot: M4 nut is 7.0 mm across flats (+0.2). Was 7.6: the nut could turn
 PEG_INSERTS   = True          # True: M4 heat-set insert seats in the poles. False: 3.4 mm self-tap holes
 INSERT_HOLE_D = 0.57          # bore the insert melts into (cm) - common M4 x 8.1 insert wants 5.6; +0.1 as on the M3 test
 INSERT_LEAD_D = 0.61          # wider mouth, 1.2 mm deep: the insert's narrow end sits in this before heating
@@ -386,6 +387,29 @@ def run(context):
                 peg_thread(carrier, axis, sign, al, rc, z0, z1, 2.3,
                            "lock screw pilot in pole")
 
+        def nut_slot(body, hx, hy, edge_y, label):
+            """Slide-in slot for an M4 nut, from the rail's outer edge to
+            the bolt hole. Parallel sides hold two flats of the nut and the
+            end is half a hexagon, so the nut seats centred on the hole and
+            cannot turn."""
+            w = NUT_SLOT_W
+            dr = 1 if edge_y > hy else -1
+            h, tip = w/(2*math.sqrt(3)), w/math.sqrt(3)
+            pts = [(hx - w/2, edge_y), (hx - w/2, hy - dr*h),
+                   (hx, hy - dr*tip), (hx + w/2, hy - dr*h),
+                   (hx + w/2, edge_y)]
+            sk = root.sketches.add(root.xYConstructionPlane)
+            L = sk.sketchCurves.sketchLines
+            P = adsk.core.Point3D.create
+            for i in range(len(pts)):
+                x0, y0 = pts[i]; x1, y1 = pts[(i + 1) % len(pts)]
+                L.addByTwoPoints(P(x0, y0, 0), P(x1, y1, 0))
+            prof = max(sk.profiles, key=lambda q: q.areaProperties().area)
+            tool = b._ext(prof, 0.8, 1.15,
+                adsk.fusion.FeatureOperations.NewBodyFeatureOperation
+                ).bodies.item(0)
+            b.cut(body, tool, label)
+
         for axis, sign, a, lo, hi, d, lay, L, lock in SEAMS:
             carrier = PCS[lo] if d > 0 else PCS[hi]
             receiver = PCS[hi] if d > 0 else PCS[lo]
@@ -530,7 +554,7 @@ def run(context):
                 b.cut(piece(nm, cuts, pos),
                       rcyl(axis, sign, pos, rebW/2, -0.01, 0.8, 0.28),
                       "rear panel pilot")
-        # cleat: M4 from the rear + captured-nut T-slot from the top edge
+        # cleat: M4 from the rear + slide-in nut slot (hex-ended) from the top edge
         hy = oH/2 - fW/2
         for s in (-1, 1):
             for cx in CLEAT_X:
@@ -540,9 +564,7 @@ def run(context):
                 else:
                     body = piece("rail_top", cutsX, hx)
                 b.cut(body, b.cyl_z(hx, hy, -0.01, 1.4, 0.45), "cleat M4 hole")
-                b.cut(body, b.box(hx - 0.38, hy - 0.45, 0.8,
-                                  hx + 0.38, oH/2 + 0.01, 1.15),
-                      "cleat nut slot")
+                nut_slot(body, hx, hy, oH/2 + 0.01, "cleat nut slot")
 
         # =============== TEST MODE: keep one short joint pair ===============
         keep = set(PCS.keys())
@@ -559,9 +581,7 @@ def run(context):
             ta, tb = PCS["rail_bottom_p2"], PCS["rail_bottom_p3"]
             tx, ty = 13.0, -(oH/2 - fW/2)
             b.cut(tb, b.cyl_z(tx, ty, -0.01, 1.4, 0.45), "test cleat M4 hole")
-            b.cut(tb, b.box(tx - 0.38, ty + 0.45, 0.8,
-                            tx + 0.38, -(oH/2 + 0.01), 1.15),
-                  "test cleat nut slot")
+            nut_slot(tb, tx, ty, -(oH/2 + 0.01), "test cleat nut slot")
             b.cut(ta, b.box(-13.0, -(oH/2 + 1), -1, -3.2, -(iH/2 - 1), fD + 1),
                   "test trim")
             b.cut(tb, b.box(17.2, -(oH/2 + 1), -1, 24.0, -(iH/2 - 1), fD + 1),
