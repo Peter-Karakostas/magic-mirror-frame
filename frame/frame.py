@@ -47,14 +47,14 @@ History of earlier versions: see git log and the archive folder.
 """
 import adsk.core, adsk.fusion, traceback, math
 
-__VERSION__ = "2026-11-26.4"
+__VERSION__ = "2026-11-27.1"
 MODE = "FULL"        # "FULL" = whole frame.  "TEST" = one short joint pair.
 
 # ---------------- joint constants (cm) ----------------
 POLE_LEN      = 4.0    # corner seams + top/bottom rail seams
 POLE_LEN_SIDE = 3.1    # the two mid seams of each side rail (bed limit)
 POLE_CLR      = 0.015  # fit clearance per side (was 0.3 mm: first test pair fitted but had play)
-POLE_ROOF     = 0.015  # extra on the hole roof (bridged layers sag)
+POLE_ROOF     = 0.0    # no extra on the hole roof: same 0.15 mm as the other sides
 SOCK_EXTRA    = 0.10   # hole is this much deeper than the pole
 TIP_LEN, TIP_IN = 0.4, 0.05   # lead-in: last 4 mm of a pole is 0.5 mm slimmer/side
 LIP_LEN, LIP_T = 0.5, 0.2     # ring lip: 5 mm past the seam, 2 mm thick
